@@ -4,6 +4,8 @@ This report records actual checks on the user's local Docker Desktop Linux engin
 
 ## Final resumed milestone
 
+Subsequent application implementation: **19 application groups + three pull/connector/volume groups passed**. Regression results after those changes: **16 foundation, 28 shell, 17 IPv4 policy and seven HTTPS/WSS checks passed**, plus Go tests/vet and portal build. Metadata scratch restore passed with 106 resource records; the current catalog/platform manifest contains 24 image identities. Native SSH/desktop results below remain earlier evidence; they were not rerun in this application pass. See [APPLICATION_PROGRESS.md](APPLICATION_PROGRESS.md) for exact behavior and remaining gates.
+
 | Verification | Result |
 |---|---|
 | Go unit tests and vet | Passed |

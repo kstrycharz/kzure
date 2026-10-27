@@ -246,9 +246,7 @@ func (d *dockerClient) ensureConnector(ctx context.Context, p connectorRequest) 
 	if len(p.ID) != 32 || strings.Trim(p.ID, "0123456789abcdef") != "" {
 		return errors.New("Invalid connector ID")
 	}
-	switch p.Port {
-	case 22, 3389, 5432, 6379, 8333, 8080:
-	default:
+	if p.Port < 1 || p.Port > 65535 {
 		return errors.New("Unsupported service port")
 	}
 	source, e := d.inspect(ctx, p.SourceID)
@@ -261,6 +259,9 @@ func (d *dockerClient) ensureConnector(ctx context.Context, p connectorRequest) 
 	}
 	if !source.State.Running || !target.State.Running || source.Config.Labels["io.kzure.tenant"] != p.TenantID || target.Config.Labels["io.kzure.tenant"] != p.TenantID {
 		return errors.New("Connector requires two running resources in the same tenant")
+	}
+	if target.Config.Labels["io.kzure.type"] == "container-app" && target.Config.Labels["io.kzure.service-port"] != "" && target.Config.Labels["io.kzure.service-port"] != strconv.Itoa(p.Port) {
+		return errors.New("Connector port does not match the application's declared service port")
 	}
 	sourceNet, _, e := primaryNetwork(source)
 	if e != nil {

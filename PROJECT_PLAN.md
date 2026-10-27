@@ -14,6 +14,8 @@ Portal authentication upgrades are deferred at the user's request. OIDC/MFA/SSO 
 
 A complete next user journey is: deploy a custom app with database/storage, configure its secrets and private bindings, open a stable URL, update/resize it, inspect real usage/cost, and restore its data through supported workflows. See F01–F12 and milestones M1–M4 in the new plan for dependencies and concrete acceptance gates.
 
+The first application slice is now implemented: local/public image registration, custom services/workers, configuration and secret references, stable local port reservations, image/configuration revisions, CPU/RAM resize, rollback and existing retained-data restore. The application checks passed 19 groups plus three additional image/network/volume groups. See [application progress](docs/APPLICATION_PROGRESS.md). M1 remains in progress for managed hostname/TLS ingress and the complete application/data binding journey; provider-aware workload backups remain a priority.
+
 ## 1. Product objective and boundaries
 
 Build a self-hosted cloud portal where an administrator can create tenants, subscriptions, resource groups, and real resources on local hardware. A resource creation request must provision actual Docker containers, networks, managed storage, credentials, endpoints, and usage records. The product must support application hosting, object storage, managed databases and caches, WAFs, Linux workspaces, and GPU compute.

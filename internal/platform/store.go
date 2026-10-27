@@ -53,7 +53,7 @@ func OpenDB(url string) (DB, error) {
 	return DB{db}, nil
 }
 func (a *App) Migrate() error {
-	_, e := a.DB.Exec(schema + terminalSchema + remoteSchema + networkSchema + desktopSchema + policySchema)
+	_, e := a.DB.Exec(schema + terminalSchema + remoteSchema + networkSchema + desktopSchema + policySchema + applicationSchema)
 	if e != nil {
 		return e
 	}
@@ -93,7 +93,7 @@ func (a *App) Migrate() error {
 }
 func hashToken(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
 
-const resourceSelect = `SELECT r.id,r.tenant_id,r.subscription_id,r.group_id,g.name,r.name,r.type,r.state,r.desired,r.spec,r.container_id,r.endpoint,r.error,r.created_at,r.updated_at,r.volume,
+const resourceSelect = `SELECT r.id,r.tenant_id,r.subscription_id,r.group_id,g.name,r.name,r.type,r.state,r.desired,r.spec,r.container_id,r.endpoint,r.error,r.created_at,r.updated_at,r.volume,r.revision,r.assigned_port,
 COALESCE((SELECT SUM((a.cpu*.01+a.ram*.002+a.storage*.00014)*GREATEST(0,EXTRACT(EPOCH FROM (COALESCE(a.end_at,now())-a.start_at)))/3600) FROM allocations a WHERE a.resource_id=r.id),0)::float8
 FROM resources r JOIN resource_groups g ON r.group_id=g.id `
 
@@ -102,7 +102,7 @@ type scanner interface{ Scan(...any) error }
 func scanResource(row scanner) (Resource, error) {
 	var r Resource
 	var raw []byte
-	e := row.Scan(&r.ID, &r.TenantID, &r.SubscriptionID, &r.GroupID, &r.GroupName, &r.Name, &r.Type, &r.State, &r.Desired, &raw, &r.ContainerID, &r.Endpoint, &r.Error, &r.CreatedAt, &r.UpdatedAt, &r.Volume, &r.Accrued)
+	e := row.Scan(&r.ID, &r.TenantID, &r.SubscriptionID, &r.GroupID, &r.GroupName, &r.Name, &r.Type, &r.State, &r.Desired, &raw, &r.ContainerID, &r.Endpoint, &r.Error, &r.CreatedAt, &r.UpdatedAt, &r.Volume, &r.Revision, &r.AssignedPort, &r.Accrued)
 	if e != nil {
 		return r, e
 	}

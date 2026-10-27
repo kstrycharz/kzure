@@ -1,0 +1,38 @@
+# Application deployment and lifecycle progress
+
+Started October 27, 2026. Scope: F01, initial F02/F03/F04 and supporting F08 work in [the core gap plan](CORE_FUNCTIONALITY_GAP_PLAN.md). Portal authentication enhancements remain deferred.
+
+## Implemented development scope
+
+- Tenant-scoped image library. An installation administrator registers an existing local image or pulls a public registry reference. The agent checks Linux/host architecture, resolves an immutable engine image identity and retains an installation-owned tag so retagging the source cannot discard a deployed revision.
+- Actual custom container apps with HTTP service/background worker modes, application TCP port, command arguments, ordinary environment settings, saved secret references, image/command health checks and one managed persistent mount. Host bind syntax, system mount paths, undeclared image volumes and unregistered images are rejected.
+- Workload secret values encrypted in platform metadata. Deployment/revision snapshots remain encrypted, API resource/history lists expose references, credential reveal is disabled for container apps and resource logs redact current/recent deployment secret values. The application and Docker host operator can inspect runtime environment values; this is not a host-operator secrecy boundary. Saved-secret rotation/private-registry credentials remain future work.
+- Managed local application port reservations in the 20000–29999 range. The port is retained through container recreation, configuration changes and retained-data restore, and released on purge. A conflicting unmanaged host listener produces a deployment error; no arbitrary host listener is removed. General hostnames, application TLS, replicas and load balancing remain F02 work.
+- Versioned application specs and encrypted revision snapshots. The portal Configuration tab supports image/environment/command/health changes, CPU/RAM resize, stale-edit rejection, quota/capacity validation and explicit restore of a prior applied configuration. This first method replaces compute with a brief interruption. It keeps the mount/subnet/storage capacity fixed. It does not undo application database migrations.
+- A failed running replacement attempts to recreate the previous application and records a failed operation plus an explicit recovery revision. If recovery also fails, data is retained and the failure is visible; a failed application can be repaired through configuration. This is not a zero-downtime rollout or complete distributed fencing guarantee.
+- Stopped applications can be reconfigured without starting compute; their new readiness is checked on the next explicit Start. Stopped containers with stale unhealthy status are correctly reported as Stopped.
+- Restore retained resource action for stateful resources, with capacity re-admission and reuse of owned volume/credentials. Missing retained data fails without creating an empty replacement. A safely cleaned failed restore stays Retained for recovery/purge. This is reattachment of existing data, not restoration from a backup.
+- Worker failure writes now check the claimed operation attempt. Complete side-effect fencing, lease heartbeat/cancellation, backoff and worker concurrency remain F08 gates.
+- Full catalog bootstrap preserves earlier workspace approval identities, including the minimal distro images. It builds an example Node application image. The agent still requires previously approved workspace identities for browser shells.
+
+## Operator workflow
+
+1. Build your image locally, or choose a public registry reference. The included example can be built with `docker build -t kzure/demo-app:0.1.0 images/application-demo` and is also built by the normal image bootstrap.
+2. In **Images & secrets**, register the reference for the active tenant. Public pulls may take several minutes. Private-registry sign-in and image archive uploads are not implemented.
+3. Save any workload secret values, then create a **Container app**. Select the image, service/worker mode, TCP port, environment/secret references and optional data path/capacity. The included example uses port 3000 and `/data`; its greeting setting is `GREETING`.
+4. Use **Configuration** on the resource to change settings/size, inspect revisions or restore a prior configuration. Follow Activity for the final result. Configure a working readiness command in the image or form before relying on automatic health-based recovery. Without a health check, readiness proves only that the process remains running briefly.
+5. Delete with data retention when appropriate. **Restore retained resource** reuses existing data. Purge remains the explicit destructive action. Back up valuable data separately until provider-aware workload backup/restore is implemented.
+
+## Verification record
+
+The final application suite passed **19 groups**. The additional image/network suite passed **three groups**: public image pull, an actual private connection to custom port 3000 with removal/revocation, and rejection of undeclared image volumes. The existing foundation suite passed **16 groups** after these changes. Go tests/vet and the portal production build passed. Tests use disposable resources and generated fixture secrets; a small example app is deliberately kept for portal inspection. Reports, credentials, backups and screenshots stay under ignored `.local/` paths.
+
+After the complete catalog rebuild and agent restart, the browser-shell suite passed **28 groups** across all 12 workspace variants, IPv4 policy passed **17 groups**, and CA-verified HTTPS/WSS passed **seven checks**. The new metadata schema restored into a scratch database with **106 resource records**; this remains a metadata-only recovery check. The release manifest records **24 current catalog/platform image identities**. Browser verification changed the example application's `GREETING`, observed revision 7 Applied/Running, and independently confirmed that the running HTTP service returned the new value. A private screenshot is saved under `.local/screenshots/application-configuration.png`.
+
+Coverage includes a real non-root API and worker; actual Docker CPU/RAM settings; encrypted secret snapshots and log redaction; tag-change/recreation; image/configuration update and resize; stale/over-capacity rejection; unhealthy rollout recovery; explicit rollback; retained restore; stopped update; missing-volume safety; and existing scoped permissions. Additional connector/public-pull tests cover custom port 3000 and rejection of unmanaged image volumes.
+
+Application log redaction matches exact current/recent snapshot values, uses one non-recursive replacement pass and caps output at 1 MiB. Unit checks cover marker overlap, short-value expansion, plain-output bounds and stopped/unhealthy observations. Application code remains responsible for transformed credentials or values written elsewhere. Final deployed verification confirmed the portal-edited greeting and live secret redaction after the last build.
+
+## Remaining next work
+
+Finish F02 with stable application hostnames/TLS ingress and healthy replica routing. Complete F04 provider-aware backups and clean-installation recovery before treating retained volumes as disaster recovery. Extend F05 physical storage admission/quotas and F07 egress/DNS/policy-drift repair. The current release bundle does not automatically export every registered workload image; complete that inventory/recovery path in F04/F08. Private-registry credentials, secret rotation, data-mount migration/storage growth, finite jobs, source builds, WAF and GPU remain in their planned work packages.

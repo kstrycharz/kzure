@@ -270,7 +270,12 @@ func (a *App) deleteSubnet(w http.ResponseWriter, r *http.Request) error {
 	if n > 0 {
 		return apiError{409, "Remove attached resources before deleting this subnet"}
 	}
-	if e=tx.QueryRow("SELECT count(*) FROM subnet_security_groups WHERE subnet_id=$1",r.PathValue("id")).Scan(&n);e!=nil{return e};if n>0{return apiError{409,"Remove the subnet security group before deleting this subnet"}}
+	if e = tx.QueryRow("SELECT count(*) FROM subnet_security_groups WHERE subnet_id=$1", r.PathValue("id")).Scan(&n); e != nil {
+		return e
+	}
+	if n > 0 {
+		return apiError{409, "Remove the subnet security group before deleting this subnet"}
+	}
 	if e = a.agent(r.Context(), "DELETE", "/networks/"+r.PathValue("id"), nil, nil); e != nil {
 		return e
 	}
@@ -483,8 +488,7 @@ func (a *App) createServiceConnection(w http.ResponseWriter, r *http.Request) er
 	if source.ID == target.ID || source.State != "Running" || target.State != "Running" {
 		return bad("Select two different running resources")
 	}
-	item, _ := Item(target.Type)
-	port := item.Port
+	port := appPort(target)
 	if isSSHWorkspace(target.Type) {
 		port = 22
 	}
@@ -504,7 +508,9 @@ func (a *App) createServiceConnection(w http.ResponseWriter, r *http.Request) er
 	if e != nil {
 		return e
 	}
-	if e=a.syncNetworkPolicies();e!=nil{return e}
+	if e = a.syncNetworkPolicies(); e != nil {
+		return e
+	}
 	jsonOut(w, 201, map[string]string{"id": cid, "hostname": "service-" + cid + ".kzure"})
 	return nil
 }
@@ -524,7 +530,9 @@ func (a *App) deleteServiceConnection(w http.ResponseWriter, r *http.Request) er
 	if e != nil {
 		return e
 	}
-	if e=a.syncNetworkPolicies();e!=nil{return e}
+	if e = a.syncNetworkPolicies(); e != nil {
+		return e
+	}
 	jsonOut(w, 200, map[string]bool{"ok": true})
 	return nil
 }
@@ -552,4 +560,3 @@ func (a *App) reconcileConnections() {
 }
 
 var _ = strings.TrimSpace
-

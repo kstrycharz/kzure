@@ -212,7 +212,9 @@ func (a *App) bindBastionTarget(w http.ResponseWriter, r *http.Request) error {
 			return e
 		}
 	}
-	if e=a.syncNetworkPolicies();e!=nil{return e}
+	if e = a.syncNetworkPolicies(); e != nil {
+		return e
+	}
 	jsonOut(w, 200, map[string]bool{"ok": true})
 	return nil
 }
@@ -227,7 +229,7 @@ func (a *App) remoteAccess(w http.ResponseWriter, r *http.Request) error {
 	}
 	role, _ := a.role(actor(r).ID, res.TenantID)
 	manage := actor(r).Admin || role == "owner"
-	out := map[string]any{"canManage": manage, "sshWorkspace": isSSHWorkspace(res.Type), "bastion": res.Type == "bastion", "desktop": res.Type == "desktop-ubuntu", "username": "kzure", "hostname": "r-" + res.ID + ".kzure", "endpoint": res.Endpoint, "browserDesktop": res.Type=="desktop-ubuntu"}
+	out := map[string]any{"canManage": manage, "sshWorkspace": isSSHWorkspace(res.Type), "bastion": res.Type == "bastion", "desktop": res.Type == "desktop-ubuntu", "username": "kzure", "hostname": "r-" + res.ID + ".kzure", "endpoint": res.Endpoint, "browserDesktop": res.Type == "desktop-ubuntu"}
 	var cipher string
 	if e = a.DB.QueryRow("SELECT secret_cipher FROM resources WHERE id=$1", res.ID).Scan(&cipher); e != nil {
 		return e

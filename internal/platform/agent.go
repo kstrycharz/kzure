@@ -128,14 +128,14 @@ func (d *dockerClient) observation(in inspection) Observation {
 	}
 	if in.State.Health != nil {
 		o.Health = in.State.Health.Status
-		if o.Health == "unhealthy" {
+		if in.State.Running && o.Health == "unhealthy" {
 			o.State = "Degraded"
 		}
 	}
 	for port, bindings := range in.NetworkSettings.Ports {
 		if len(bindings) > 0 {
 			scheme := "tcp"
-			if strings.HasPrefix(port, "8080/") || strings.HasPrefix(port, "8333/") {
+			if in.Config.Labels["io.kzure.type"] == "container-app" || strings.HasPrefix(port, "8080/") || strings.HasPrefix(port, "8333/") {
 				scheme = "http"
 			}
 			o.Endpoint = scheme + "://" + d.publicHost + ":" + bindings[0].HostPort
@@ -207,16 +207,27 @@ func (d *dockerClient) ensure(ctx context.Context, p ProvisionRequest) (Observat
 	if e = validateSpec(r.Type, r.Name, r.Spec); e != nil {
 		return Observation{}, e
 	}
+	if p.Restore {
+		if _, err := d.call(ctx, "GET", "/volumes/"+d.name(r.ID)+"-data", nil); err != nil {
+			return Observation{}, errors.New("retained data volume is unavailable; restore cannot create an empty replacement")
+		}
+	}
 	in, e := d.inspect(ctx, r.ID)
 	if e == nil {
+		if r.Desired == "Stopped" {
+			if in.State.Running {
+				return d.act(ctx, r.ID, "stop")
+			}
+			return d.observation(in), nil
+		}
 		if !in.State.Running {
 			if _, e = d.call(ctx, "POST", "/containers/"+in.ID+"/start", nil); e != nil {
 				return Observation{}, e
 			}
 		}
-		in, e = d.inspect(ctx, r.ID)
-		return d.observation(in), e
+		return d.waitReady(ctx, r.ID)
 	}
+
 	if !is404(e) {
 		return Observation{}, e
 	}
@@ -224,9 +235,15 @@ func (d *dockerClient) ensure(ctx context.Context, p ProvisionRequest) (Observat
 	if locked := d.imageLocks[image]; locked != "" {
 		image = locked
 	}
+	if r.Type == "container-app" && imageIdentity.MatchString(r.Spec.Image) {
+		image = r.Spec.Image
+	}
 	if _, e = d.call(ctx, "GET", "/images/"+url.PathEscape(image)+"/json", nil); e != nil {
 		if !is404(e) {
 			return Observation{}, e
+		}
+		if r.Type == "container-app" && imageIdentity.MatchString(r.Spec.Image) {
+			return Observation{}, errors.New("registered immutable image is missing on this host; reload the original image before recovery")
 		}
 		if strings.HasPrefix(c.Image, "kzure/") {
 			return Observation{}, errors.New("local catalog image is missing; run the Kzure image build script")
@@ -247,6 +264,24 @@ func (d *dockerClient) ensure(ctx context.Context, p ProvisionRequest) (Observat
 		}
 	}
 	labels := d.labels(r)
+	if r.Type == "container-app" {
+		raw, err := d.call(ctx, "GET", "/images/"+url.PathEscape(image)+"/json", nil)
+		if err != nil {
+			return Observation{}, err
+		}
+		var info struct {
+			Config struct{ Volumes map[string]any }
+		}
+		if err = json.Unmarshal(raw, &info); err != nil {
+			return Observation{}, err
+		}
+		for mount := range info.Config.Volumes {
+			if r.Spec.Storage < 1 || mount != r.Spec.MountPath {
+				return Observation{}, errors.New("image declares a data volume; configure its exact path as the managed mount (multiple image volumes are not supported yet)")
+			}
+		}
+	}
+	labels["io.kzure.service-port"] = fmt.Sprint(appPort(r))
 	network := d.name(r.ID) + "-net"
 	if p.Network != nil {
 		network = d.name(p.Network.ID) + "-subnet"
@@ -260,14 +295,22 @@ func (d *dockerClient) ensure(ctx context.Context, p ProvisionRequest) (Observat
 	}
 	volume := ""
 	binds := []string{}
-	if c.Persistent {
+	if c.Persistent || r.Type == "container-app" && r.Spec.Storage > 0 {
 		volume = d.name(r.ID) + "-data"
+		if p.Restore {
+			if _, err := d.call(ctx, "GET", "/volumes/"+volume, nil); err != nil {
+				return Observation{}, errors.New("retained data volume is unavailable; restore cannot create an empty replacement")
+			}
+		}
 		if e = d.ensureOwned(ctx, "/volumes", volume, labels, map[string]any{}); e != nil {
 			return Observation{}, e
 		}
 		mount := "/data"
 		if r.Type == "postgres" {
 			mount = "/var/lib/postgresql"
+		}
+		if r.Type == "container-app" {
+			mount = r.Spec.MountPath
 		}
 		binds = append(binds, volume+":"+mount)
 	}
@@ -279,6 +322,11 @@ func (d *dockerClient) ensure(ctx context.Context, p ProvisionRequest) (Observat
 		user = "1000:1000"
 	}
 	switch r.Type {
+	case "container-app":
+		environment = applicationEnvironment(r.Spec, p.Secrets)
+		if len(r.Spec.Command) > 0 {
+			cmd = r.Spec.Command
+		}
 	case "postgres":
 		environment = []string{"POSTGRES_USER=kzure", "POSTGRES_DB=app", "POSTGRES_PASSWORD=" + p.Secrets["password"]}
 	case "valkey":
@@ -288,6 +336,12 @@ func (d *dockerClient) ensure(ctx context.Context, p ProvisionRequest) (Observat
 	}
 	hc := map[string]any{"NanoCpus": int64(r.Spec.CPU * 1e9), "Memory": int64(r.Spec.RAM * 1024 * 1024 * 1024), "MemorySwap": int64(r.Spec.RAM * 1024 * 1024 * 1024), "PidsLimit": 256, "NetworkMode": network, "Binds": binds, "Init": true, "SecurityOpt": security, "CapDrop": []string{"NET_RAW", "SYS_ADMIN"}, "RestartPolicy": map[string]any{"Name": "unless-stopped"}, "LogConfig": map[string]any{"Type": "json-file", "Config": map[string]string{"max-size": "5m", "max-file": "2"}}}
 	cfg := map[string]any{"Image": image, "Labels": labels, "HostConfig": hc, "Env": environment}
+	if r.Type == "container-app" {
+		hc["CapDrop"] = []string{"ALL"}
+		if len(r.Spec.Healthcheck) > 0 {
+			cfg["Healthcheck"] = map[string]any{"Test": append([]string{"CMD"}, r.Spec.Healthcheck...), "Interval": int64(5 * time.Second), "Timeout": int64(3 * time.Second), "Retries": 3, "StartPeriod": int64(5 * time.Second)}
+		}
+	}
 	endpoint := map[string]any{"Aliases": []string{"r-" + r.ID + ".kzure"}}
 	if p.Network != nil {
 		endpoint["IPAMConfig"] = map[string]string{"IPv4Address": p.Network.Address}
@@ -307,10 +361,14 @@ func (d *dockerClient) ensure(ctx context.Context, p ProvisionRequest) (Observat
 	if user != "" {
 		cfg["User"] = user
 	}
-	if c.Port > 0 {
-		port := fmt.Sprintf("%d/tcp", c.Port)
+	if servicePort := appPort(r); servicePort > 0 {
+		port := fmt.Sprintf("%d/tcp", servicePort)
 		cfg["ExposedPorts"] = map[string]any{port: map[string]any{}}
-		hc["PortBindings"] = map[string]any{port: []map[string]string{{"HostIp": "127.0.0.1", "HostPort": ""}}}
+		hostPort := ""
+		if r.Type == "container-app" && r.AssignedPort > 0 {
+			hostPort = fmt.Sprint(r.AssignedPort)
+		}
+		hc["PortBindings"] = map[string]any{port: []map[string]string{{"HostIp": "127.0.0.1", "HostPort": hostPort}}}
 	}
 	b, e := d.call(ctx, "POST", "/containers/create?name="+d.name(r.ID), cfg)
 	if e != nil {
@@ -368,13 +426,21 @@ func (d *dockerClient) ensure(ctx context.Context, p ProvisionRequest) (Observat
 			return Observation{}, e
 		}
 	}
+	if r.Desired == "Stopped" {
+		configured = true
+		in, e = d.inspect(ctx, r.ID)
+		return d.observation(in), e
+	}
 	if _, e = d.call(ctx, "POST", "/containers/"+created.ID+"/start", nil); e != nil {
 		return Observation{}, e
 	}
 	configured = true
+	return d.waitReady(ctx, r.ID)
+}
+func (d *dockerClient) waitReady(ctx context.Context, rid string) (Observation, error) {
 	deadline := time.Now().Add(45 * time.Second)
 	for {
-		in, e = d.inspect(ctx, r.ID)
+		in, e := d.inspect(ctx, rid)
 		if e != nil {
 			return Observation{}, e
 		}
@@ -561,6 +627,33 @@ func (a *App) RunAgent() error {
 	d.remoteAgentRoutes(mux)
 	d.desktopAgentRoutes(mux)
 	d.policyRoutes(mux)
+	mux.HandleFunc("POST /applications/replace", a.handle(func(w http.ResponseWriter, r *http.Request) error {
+		var in replacementRequest
+		if e := decode(r, &in); e != nil {
+			return e
+		}
+		out, e := d.replaceApplication(r.Context(), in)
+		if e != nil {
+			return apiError{502, e.Error()}
+		}
+		jsonOut(w, 200, out)
+		return nil
+	}))
+	mux.HandleFunc("POST /images/resolve", a.handle(func(w http.ResponseWriter, r *http.Request) error {
+		var in struct {
+			Reference string `json:"reference"`
+			Pull      bool   `json:"pull"`
+		}
+		if e := decode(r, &in); e != nil {
+			return e
+		}
+		out, e := d.resolveApplicationImage(r.Context(), in.Reference, in.Pull)
+		if e != nil {
+			return bad(e.Error())
+		}
+		jsonOut(w, 200, out)
+		return nil
+	}))
 	mux.HandleFunc("GET /resources/{id}/terminal", d.serveTerminal)
 	mux.HandleFunc("GET /host", a.handle(func(w http.ResponseWriter, r *http.Request) error {
 		b, e := d.call(r.Context(), "GET", "/info", nil)

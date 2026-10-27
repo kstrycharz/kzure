@@ -6,6 +6,8 @@ Started: October 26, 2026. Scope: [remote-access plan](REMOTE_ACCESS_NETWORKING_
 
 This is the execution record. A phase is complete only when its stated acceptance evidence has been collected. Existing Docker Desktop workloads and data remain the development installation.
 
+**Application phase regression:** after custom application deployment/update/retained restore and full catalog rebuild, the browser-shell suite passed 28 groups, IPv4 policy passed 17 groups and HTTPS/WSS passed seven checks again. Earlier workspace image approvals are now retained across full bootstrap. See [APPLICATION_PROGRESS.md](APPLICATION_PROGRESS.md); this does not complete the separate native RDP, physical LAN or production recovery gates.
+
 **Functional planning update, October 27:** [CORE_FUNCTIONALITY_GAP_PLAN.md](CORE_FUNCTIONALITY_GAP_PLAN.md) now defines the next implementation sequence. Portal authentication upgrades are deferred by the user. Prioritize general application deployment, stable endpoints, day-two lifecycle and data recovery; reuse the remote-access foundation. F07/F08 capture remaining native RDP, network drift, egress and upgrade work. This update is analysis/documentation only and does not add new runtime test evidence.
 
 ## Current milestone — October 27, 2026

@@ -8,6 +8,8 @@ Final resumed verification: 16 foundation, 28 browser-shell, 14 native-access/ne
 
 **October 27 functional review:** the [core gap analysis and delivery plan](CORE_FUNCTIONALITY_GAP_PLAN.md) now defines the execution order. Portal authentication upgrades are deferred by user instruction. The immediate gaps are custom image deployment/configuration, stable application endpoints, update/resize/revisions, restore of retained data, and actual workload backup/restore. This was a source/documentation review; no new runtime qualification was performed.
 
+**Subsequent implementation:** custom image deployment/configuration, stable assigned local application ports, application revisions/update/CPU-RAM resize/rollback and retained-volume restore are now implemented. The application suite passed 19 groups; public pull, custom-port private connectors and unmanaged image-volume rejection passed three more. See [APPLICATION_PROGRESS.md](APPLICATION_PROGRESS.md). General application hostname/TLS ingress, complete service bindings, provider-aware workload backups and the remaining F01–F12 gates are still open.
+
 ## Delivered foundation
 
 - React/TypeScript portal: sign-in, dashboard, tenant switcher, catalog, real create-resource wizard, resource details, logs, live metrics, lifecycle actions, group/tenant/subscription creation, operations, cost table/CSV, host capability view, and scoped local-user creation.
@@ -27,7 +29,7 @@ Final resumed verification: 16 foundation, 28 browser-shell, 14 native-access/ne
 | P0: host proof | Partial | Dedicated Linux host with quota-capable filesystem, physical storage inventory and GPU qualification. Optional loopback portal TLS is tested; application ingress/LAN qualification remain. |
 | P1: bootstrap/design | Partial | API contract completeness, full design documentation and clean supported-Linux install qualification. |
 | P2: identity/governance | Partial; portal auth upgrades deferred | Quota editing, tags, deletion locks, group lifecycle and templates remain functional work. Existing local sessions and API tenant boundaries work. OIDC/MFA/SSO, account redesign and deeper identity hardening are outside the current functional sequence. |
-| P3: resource engine | Partial | Custom images/configuration, revisions/update/rollback, resize, retained restore, spec-drift reconciliation, retry/cancel and complete fencing. Basic durable lifecycle and missing-container recovery work. |
+| P3: resource engine | Partial | Custom application images/configuration, revisions/rollback, CPU/RAM resize and retained restore are delivered. Full spec-drift reconciliation, other-provider updates, retry/cancel and complete side-effect fencing remain. |
 | P4: static apps | Partial | Archive builds, revisions, atomic routing/rollback, custom domains and TLS. A single HTML/default site deploys to a real container. |
 | P5: storage/MVP | Partial | Object browser, key rotation, managed-volume inventory/reattach, physical usage/admission, enforced quota and workload restore. Signed S3 operations and metadata scratch restore are tested. |
 | P6: PaaS/data | Partial | Source builds, registry, app plans/runtime recipes, configuration/credential bindings, data-service upgrades and database backup/restore. Dedicated database/cache providers and fixed TCP connectors run. |
@@ -41,8 +43,8 @@ Final resumed verification: 16 foundation, 28 browser-shell, 14 native-access/ne
 
 Use [F01–F12 in the core gap plan](CORE_FUNCTIONALITY_GAP_PLAN.md), rather than the historical pause checklist, for new work. Portal authentication enhancements are deferred; no authentication changes or feature implementation were made during this planning pass.
 
-1. **Host a real custom application:** F01 custom images/configuration, F02 stable app endpoints and F03 update/resize/revisions, with minimum F08 operation fencing and image-upgrade continuity.
-2. **Recover data:** start F04 retained-data restore immediately; deliver provider-aware workload backup/restore and a clean installation recovery drill. Retained resources currently expose purge only.
+1. **Complete application hosting:** the initial F01/F03 custom-image/configuration/revision/resize/rollback workflow is built. Finish F02 hostname/TLS ingress and a verified custom app + database/storage binding journey; extend F08 reconciliation and recovery.
+2. **Recover data:** retained resources now have a Restore action that reuses existing data safely. Deliver provider-aware workload backup/restore and a clean installation recovery drill; retained data on the same disk is not a backup.
 3. **Protect physical capacity:** F05 disk usage/headroom/admission and qualified quotas; account for backups/images/builds as well as declared workload data.
 4. **Finish everyday service workflows:** F06 multi-file static sites, object browser and database/application bindings; F07 outbound routing/DNS/observed-policy repair; F09 quota editing, tags, templates and dependency-aware management.
 5. **Make operations visible and reliable:** extend F08 retry/cancel, reconciliation, health history/alerts, upgrades and clean-host acceptance throughout the work.

@@ -135,6 +135,7 @@ func (a *App) RunAPI() error {
 	a.remoteRoutes(secured, mux)
 	a.networkRoutes(secured)
 	a.desktopRoutes(secured)
+	a.applicationRoutes(secured)
 	a.networkPolicyRoutes(secured)
 	secured.HandleFunc("GET /api/me", a.handle(func(w http.ResponseWriter, r *http.Request) error { jsonOut(w, 200, actor(r)); return nil }))
 	secured.HandleFunc("POST /api/logout", a.handle(func(w http.ResponseWriter, r *http.Request) error {
@@ -359,6 +360,12 @@ func (a *App) RunAPI() error {
 		if e = a.agent(r.Context(), "GET", "/resources/"+res.ID+"/logs", nil, &out); e != nil {
 			return apiError{502, e.Error()}
 		}
+		if res.Type == "container-app" {
+			out["logs"], e = a.redactApplicationOutput(res.ID, out["logs"])
+			if e != nil {
+				return e
+			}
+		}
 		jsonOut(w, 200, out)
 		return nil
 	}))
@@ -384,6 +391,9 @@ func (a *App) RunAPI() error {
 		}
 		if e = a.scope(r, res.TenantID, false); e != nil {
 			return e
+		}
+		if res.Type == "container-app" {
+			return apiError{403, "Application secrets are supplied through saved references and are not revealed by this endpoint"}
 		}
 		if res.Type == "bastion" || isSSHWorkspace(res.Type) {
 			return apiError{403, "Host identity and gateway control keys are managed by the platform"}
@@ -522,7 +532,7 @@ func (a *App) RunAPI() error {
 		mux.ServeHTTP(w, r)
 	})
 	log.Printf("Management API listening on :8090")
-	return (&http.Server{Addr: ":8090", Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 45 * time.Second, IdleTimeout: 60 * time.Second}).ListenAndServe()
+	return (&http.Server{Addr: ":8090", Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 10 * time.Minute, IdleTimeout: 60 * time.Second}).ListenAndServe()
 }
 
 func (a *App) createResource(w http.ResponseWriter, r *http.Request) error {
@@ -541,6 +551,9 @@ func (a *App) createResource(w http.ResponseWriter, r *http.Request) error {
 	}
 	if e := validateSpec(in.Type, in.Name, in.Spec); e != nil {
 		return bad(e.Error())
+	}
+	if e := a.validateAppReferences(r, in.TenantID, in.Type, in.Spec); e != nil {
+		return e
 	}
 	key := r.Header.Get("Idempotency-Key")
 	if len(key) > 128 {
@@ -603,12 +616,26 @@ func (a *App) createResource(w http.ResponseWriter, r *http.Request) error {
 	}
 	rid, oid := id(), id()
 	spec, _ := json.Marshal(in.Spec)
-	cipher, e := a.seal(secretsFor(in.Type))
+	secretValues, e := a.applicationSecrets(in.TenantID, in.Type, in.Spec, secretsFor(in.Type))
+	if e != nil {
+		return e
+	}
+	cipher, e := a.seal(secretValues)
 	if e != nil {
 		return e
 	}
 	if _, e = tx.Exec("INSERT INTO resources(id,tenant_id,subscription_id,group_id,name,type,spec,secret_cipher) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", rid, in.TenantID, sid, in.GroupID, in.Name, in.Type, spec, cipher); e != nil {
 		return apiError{409, "A resource with this name already exists in the group"}
+	}
+	if in.Type == "container-app" {
+		if _, e = tx.Exec("INSERT INTO resource_revisions(resource_id,revision,spec,secret_cipher,state) VALUES($1,1,$2,$3,'Pending')", rid, spec, cipher); e != nil {
+			return e
+		}
+		if in.Spec.Mode != "worker" {
+			if _, e = tx.Exec("UPDATE resources SET assigned_port=(SELECT n FROM generate_series(20000,29999) n WHERE NOT EXISTS(SELECT 1 FROM resources WHERE assigned_port=n AND state<>'Deleted') ORDER BY n LIMIT 1) WHERE id=$1", rid); e != nil {
+				return e
+			}
+		}
 	}
 	if _, e = a.reserveNetwork(tx, rid, in.TenantID, in.Spec); e != nil {
 		return e
@@ -642,7 +669,7 @@ func (a *App) resourceAction(w http.ResponseWriter, r *http.Request) error {
 	if e := decode(r, &in); e != nil {
 		return e
 	}
-	if in.Action != "start" && in.Action != "stop" && in.Action != "restart" && in.Action != "delete" && in.Action != "purge" {
+	if in.Action != "restore" && in.Action != "start" && in.Action != "stop" && in.Action != "restart" && in.Action != "delete" && in.Action != "purge" {
 		return bad("unsupported action")
 	}
 	res, e := a.resource(r.PathValue("id"))
@@ -670,11 +697,14 @@ func (a *App) resourceAction(w http.ResponseWriter, r *http.Request) error {
 			return apiError{409, "Remove service connections and bastion target bindings before deleting this resource"}
 		}
 	}
-	if res.State == "Retained" && in.Action != "purge" {
-		return apiError{409, "only purge is supported for retained data"}
+	if res.State == "Retained" && in.Action != "purge" && in.Action != "restore" {
+		return apiError{409, "restore or purge the retained data"}
+	}
+	if in.Action == "restore" && res.State != "Retained" {
+		return apiError{409, "Only retained resources can be restored"}
 	}
 	var h Host
-	if in.Action == "start" || in.Action == "restart" {
+	if in.Action == "start" || in.Action == "restart" || in.Action == "restore" {
 		if e = a.agent(r.Context(), "GET", "/host", nil, &h); e != nil {
 			return apiError{503, "Node agent is unavailable"}
 		}
@@ -691,7 +721,7 @@ func (a *App) resourceAction(w http.ResponseWriter, r *http.Request) error {
 	if e = tx.QueryRow("SELECT desired,state FROM resources WHERE id=$1 FOR UPDATE", res.ID).Scan(&desired, &state); e != nil {
 		return e
 	}
-	if state == "Deleted" || (state == "Retained" && in.Action != "purge") {
+	if state == "Deleted" || (state == "Retained" && in.Action != "purge" && in.Action != "restore") || in.Action == "restore" && state != "Retained" {
 		return apiError{409, "resource is deleted; retained data supports purge only"}
 	}
 	var busy int
@@ -701,7 +731,7 @@ func (a *App) resourceAction(w http.ResponseWriter, r *http.Request) error {
 	if busy > 0 {
 		return apiError{409, "another operation is already in progress"}
 	}
-	if (in.Action == "start" || in.Action == "restart") && desired != "Running" {
+	if (in.Action == "start" || in.Action == "restart" || in.Action == "restore") && desired != "Running" {
 		var cpu, ram, sc, sr float64
 		if e = tx.QueryRow("SELECT COALESCE(SUM((spec->>'cpu')::numeric),0),COALESCE(SUM((spec->>'ram')::numeric),0) FROM resources WHERE desired='Running' AND state NOT IN ('Deleted','Retained')").Scan(&cpu, &ram); e != nil {
 			return e
@@ -720,7 +750,7 @@ func (a *App) resourceAction(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 	next := desired
-	if in.Action == "start" || in.Action == "restart" {
+	if in.Action == "start" || in.Action == "restart" || in.Action == "restore" {
 		next = "Running"
 	}
 	// Keep running reservations until the worker confirms deallocation.
@@ -728,7 +758,7 @@ func (a *App) resourceAction(w http.ResponseWriter, r *http.Request) error {
 	if _, e = tx.Exec("INSERT INTO operations(id,tenant_id,resource_id,action) VALUES($1,$2,$3,$4)", oid, res.TenantID, res.ID, in.Action); e != nil {
 		return e
 	}
-	queuedState := map[string]string{"start": "Provisioning", "stop": "Updating", "restart": "Updating", "delete": "Deleting", "purge": "Deleting"}[in.Action]
+	queuedState := map[string]string{"restore": "Provisioning", "start": "Provisioning", "stop": "Updating", "restart": "Updating", "delete": "Deleting", "purge": "Deleting"}[in.Action]
 	if _, e = tx.Exec("UPDATE resources SET desired=$1,state=$2,updated_at=now() WHERE id=$3", next, queuedState, res.ID); e != nil {
 		return e
 	}

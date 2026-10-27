@@ -1,6 +1,20 @@
 # Kzure core functionality gap analysis and delivery plan
 
-Reviewed: October 27, 2026. Implementation baseline: commit `85290f2`.
+Reviewed: October 27, 2026. Analysis baseline: commit `85290f2`. Subsequent implementation is recorded below; the original inventory/source findings describe that baseline.
+
+## Implementation update — October 27
+
+See [APPLICATION_PROGRESS.md](APPLICATION_PROGRESS.md) for current behavior, operator steps and qualification limits. The original review below was documentation-only; subsequent development has added actual implementation and tests.
+
+| Work | Current state | Evidence / remaining work |
+|---|---|---|
+| F01 custom applications | Core implementation qualified for this development host | 19 application groups and three additional pull/network/volume groups passed. Local/public image registration, architecture checks, retained immutable image tags, HTTP service/worker modes, config, encrypted secret references, health commands and one persistent mount work. Private registries, image archive import and finite jobs remain. |
+| F02 endpoints | Initial local port identity implemented | Reserved application ports survive recreation, update and retained restore. Hostname/application TLS ingress and replica routing remain. |
+| F03 lifecycle | Application revisions implemented | Image/configuration changes, CPU/RAM resize, conditional edits, automatic recovery of failed health checks and explicit rollback passed. Brief compute interruption is expected. Other providers, storage growth/migration, zero-downtime rollout and full drift reconciliation remain. |
+| F04 recovery | Existing retained-volume restore implemented | Data/credential/endpoint retention and missing-volume refusal passed. Provider-aware backups, restore from backup and full installation/workload recovery remain. |
+| F08 reliability/upgrade | Supporting fixes implemented | Failure writes check the operation attempt; full image bootstrap retains workspace approval history. Full agent side-effect fencing, concurrency/fault qualification, retry/backoff/cancel and complete registered-image release export remain. |
+
+M1 is still in progress: complete managed application ingress and a verified custom app + database/storage binding journey. M2/M3 work has not been marked complete by these changes. Portal authentication enhancements stay deferred. Treat the following assessment/inventory/source findings as the original review, and use this table for current implementation status.
 
 This is the current execution plan for completing the single-host product. It supplements the original [project specification](../PROJECT_PLAN.md) and replaces its old sequential priorities where they conflict. This review inspected source, API routes, schemas, provisioning/reconciliation, portal flows, build/backup scripts and recorded verification. It did not run new workload tests or change the deployment. Earlier passing tests remain evidence only for their tested behavior.
 

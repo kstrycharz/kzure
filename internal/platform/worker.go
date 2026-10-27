@@ -159,12 +159,45 @@ func (a *App) workOne() error {
 	if e != nil {
 		return e
 	}
-	_, e = a.DB.Exec("UPDATE resources SET state=$1,error='',updated_at=now() WHERE id=$2", map[string]string{"create": "Provisioning", "start": "Provisioning", "restart": "Updating", "stop": "Updating", "delete": "Deleting", "purge": "Deleting"}[action], rid)
+	_, e = a.DB.Exec("UPDATE resources SET state=$1,error='',updated_at=now() WHERE id=$2", map[string]string{"update": "Updating", "restore": "Provisioning", "create": "Provisioning", "start": "Provisioning", "restart": "Updating", "stop": "Updating", "delete": "Deleting", "purge": "Deleting"}[action], rid)
 	if e != nil {
 		return e
 	}
 	var out Observation
-	if action == "create" || action == "start" {
+	var previous Resource
+	var previousCipher string
+	var replacement replacementResult
+	if action == "update" {
+		previous = res
+		previous.Spec = Spec{}
+		var oldSpec []byte
+		e = a.DB.QueryRow("SELECT spec,secret_cipher FROM resource_revisions WHERE resource_id=$1 AND revision=$2", rid, res.Revision-1).Scan(&oldSpec, &previousCipher)
+		if e == nil {
+			e = json.Unmarshal(oldSpec, &previous.Spec)
+		}
+		var cipher string
+		if e == nil {
+			e = a.DB.QueryRow("SELECT secret_cipher FROM resources WHERE id=$1", rid).Scan(&cipher)
+		}
+		var sec, oldSec map[string]string
+		if e == nil {
+			sec, e = a.unseal(cipher)
+		}
+		if e == nil {
+			oldSec, e = a.unseal(previousCipher)
+		}
+		var network *NetworkPlan
+		if e == nil {
+			network, e = a.networkFor(res)
+		}
+		if e == nil {
+			e = a.syncNetworkPolicies()
+		}
+		if e == nil {
+			e = a.agent(context.Background(), "POST", "/applications/replace", replacementRequest{Next: ProvisionRequest{Resource: res, Secrets: sec, Network: network}, Previous: ProvisionRequest{Resource: previous, Secrets: oldSec, Network: network}}, &replacement)
+			out = replacement.Observation
+		}
+	} else if action == "create" || action == "start" || action == "restore" {
 		var encrypted string
 		if e = a.DB.QueryRow("SELECT secret_cipher FROM resources WHERE id=$1", rid).Scan(&encrypted); e == nil {
 			var sec map[string]string
@@ -181,7 +214,7 @@ func (a *App) workOne() error {
 					}
 				}
 				if e == nil {
-					e = a.agent(context.Background(), "POST", "/ensure", ProvisionRequest{Resource: res, Secrets: sec, Network: network, SSHKeys: a.authorizedKeys(res.ID)}, &out)
+					e = a.agent(context.Background(), "POST", "/ensure", ProvisionRequest{Restore: action == "restore", Resource: res, Secrets: sec, Network: network, SSHKeys: a.authorizedKeys(res.ID)}, &out)
 				}
 			}
 		}
@@ -190,6 +223,13 @@ func (a *App) workOne() error {
 	}
 	if e != nil {
 		message := e.Error()
+		failureState, failureDesired := "Failed", res.Desired
+		if action == "restore" {
+			var retained Observation
+			if cleanupError := a.agent(context.Background(), "POST", "/resources/"+rid+"/actions", map[string]string{"action": "delete"}, &retained); cleanupError == nil {
+				failureState, failureDesired = "Retained", "Deleted"
+			}
+		}
 		if len(message) > 1800 {
 			message = message[:1800]
 		}
@@ -198,11 +238,23 @@ func (a *App) workOne() error {
 			return err
 		}
 		defer tx.Rollback()
+		var claimed int
+		if err = tx.QueryRow("SELECT attempts FROM operations WHERE id=$1 AND state='Running' FOR UPDATE", oid).Scan(&claimed); err != nil {
+			return err
+		}
+		if claimed != attempt {
+			return errors.New("operation lease superseded")
+		}
 		if _, err = tx.Exec("UPDATE operations SET state='Failed',message=$1,updated_at=now(),lease_until=NULL WHERE id=$2 AND attempts=$3", message, oid, attempt); err != nil {
 			return err
 		}
-		if _, err = tx.Exec("UPDATE resources SET state='Failed',error=$1,updated_at=now() WHERE id=$2", message, rid); err != nil {
+		if _, err = tx.Exec("UPDATE resources SET state=$3,desired=$4,error=$1,updated_at=now() WHERE id=$2", message, rid, failureState, failureDesired); err != nil {
 			return err
+		}
+		if res.Type == "container-app" && (action == "create" || action == "update") {
+			if _, err = tx.Exec("UPDATE resource_revisions SET state='Failed',message=$3 WHERE resource_id=$1 AND revision=$2", rid, res.Revision, message); err != nil {
+				return err
+			}
 		}
 		if err = tx.Commit(); err != nil {
 			return err
@@ -220,6 +272,25 @@ func (a *App) workOne() error {
 	}
 	if currentAttempt != attempt {
 		return errors.New("operation lease superseded")
+	}
+	operationState := "Succeeded"
+	if replacement.RolledBack {
+		if _, e = tx.Exec("UPDATE resource_revisions SET state='Failed',message=$3 WHERE resource_id=$1 AND revision=$2", rid, res.Revision, replacement.Message); e != nil {
+			return e
+		}
+		raw, _ := json.Marshal(previous.Spec)
+		if _, e = tx.Exec("INSERT INTO resource_revisions(resource_id,revision,spec,secret_cipher,message) VALUES($1,$2,$3,$4,'Automatic recovery of previous configuration')", rid, res.Revision+1, raw, previousCipher); e != nil {
+			return e
+		}
+		if _, e = tx.Exec("UPDATE resources SET spec=$2,secret_cipher=$3,revision=revision+1 WHERE id=$1", rid, raw, previousCipher); e != nil {
+			return e
+		}
+		res.Spec = previous.Spec
+		operationState = "Failed"
+	} else if res.Type == "container-app" {
+		if _, e = tx.Exec("UPDATE resource_revisions SET state='Applied' WHERE resource_id=$1 AND revision=$2", rid, res.Revision); e != nil {
+			return e
+		}
 	}
 	desired := "Running"
 	if out.State == "Stopped" {
@@ -240,6 +311,12 @@ func (a *App) workOne() error {
 		}
 	}
 	message := "Resource is ready"
+	if action == "update" {
+		message = "Application configuration applied"
+		if replacement.RolledBack {
+			message = "Update failed; previous configuration restored: " + replacement.Message
+		}
+	}
 	switch action {
 	case "stop":
 		message = "Compute stopped; persistent data retained"
@@ -251,7 +328,7 @@ func (a *App) workOne() error {
 	case "purge":
 		message = "Resource and its managed data have been removed"
 	}
-	if _, e = tx.Exec("UPDATE operations SET state='Succeeded',message=$1,updated_at=now(),lease_until=NULL WHERE id=$2", message, oid); e != nil {
+	if _, e = tx.Exec("UPDATE operations SET state=$3,message=$1,updated_at=now(),lease_until=NULL WHERE id=$2", message, oid, operationState); e != nil {
 		return e
 	}
 	return tx.Commit()

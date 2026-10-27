@@ -37,14 +37,23 @@ type CatalogItem struct {
 	Command     []string `json:"-"`
 }
 type Spec struct {
-	CPU      float64 `json:"cpu"`
-	RAM      float64 `json:"ram"`
-	Storage  float64 `json:"storage"`
-	HTML     string  `json:"html,omitempty"`
-	Image    string  `json:"image,omitempty"`
-	SubnetID string  `json:"subnetId,omitempty"`
+	CPU               float64           `json:"cpu"`
+	RAM               float64           `json:"ram"`
+	Storage           float64           `json:"storage"`
+	HTML              string            `json:"html,omitempty"`
+	Image             string            `json:"image,omitempty"`
+	SubnetID          string            `json:"subnetId,omitempty"`
+	Mode              string            `json:"mode,omitempty"`
+	Port              int               `json:"port,omitempty"`
+	Environment       map[string]string `json:"environment,omitempty"`
+	SecretEnvironment map[string]string `json:"secretEnvironment,omitempty"`
+	Command           []string          `json:"command,omitempty"`
+	Healthcheck       []string          `json:"healthcheck,omitempty"`
+	MountPath         string            `json:"mountPath,omitempty"`
 }
 type Resource struct {
+	Revision        int       `json:"revision"`
+	AssignedPort    int       `json:"assignedPort,omitempty"`
 	ID              string    `json:"id"`
 	TenantID        string    `json:"tenantId"`
 	SubscriptionID  string    `json:"subscriptionId"`
@@ -81,6 +90,7 @@ type User struct {
 	Admin bool   `json:"admin"`
 }
 type ProvisionRequest struct {
+	Restore  bool              `json:"restore,omitempty"`
 	Resource Resource          `json:"resource"`
 	Secrets  map[string]string `json:"secrets,omitempty"`
 	Network  *NetworkPlan      `json:"network,omitempty"`
@@ -172,7 +182,14 @@ func validateSpec(kind, name string, s Spec) error {
 	if len(s.HTML) > 1024*1024 {
 		return errors.New("HTML must be less than 1 MiB")
 	}
-	if s.Image != "" && s.Image != c.Image {
+	if kind == "container-app" {
+		if e := validateAppSpec(s); e != nil {
+			return e
+		}
+	} else if s.Mode != "" || s.Port != 0 || len(s.Environment) > 0 || len(s.SecretEnvironment) > 0 || len(s.Command) > 0 || len(s.Healthcheck) > 0 || s.MountPath != "" {
+		return errors.New("application settings are supported only for container apps")
+	}
+	if kind != "container-app" && s.Image != "" && s.Image != c.Image {
 		return errors.New("only the approved catalog image is allowed in this release")
 	}
 	if kind == "postgres" && s.RAM < .5 {

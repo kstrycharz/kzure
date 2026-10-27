@@ -44,7 +44,7 @@ The development portal and service endpoints bind only to the local machine. The
 | Resource | Current behavior |
 |---|---|
 | Static web app | Actual custom Nginx image; built-in welcome site or a single uploaded/pasted HTML page; Docker health check; local HTTP endpoint. |
-| Container app | Approved Nginx container as the initial template; CPU/RAM limits, health, endpoint, logs, lifecycle. Arbitrary image import is not implemented yet. |
+| Container app | Register your own local/public Linux image, deploy an HTTP service or background worker, configure environment/secret references, arguments, health checks and one persistent mount. Includes stable local port, CPU/RAM resize, revisions and rollback. |
 | PostgreSQL | Dedicated PostgreSQL 18 instance, encrypted generated password, persistent volume, local authenticated TCP endpoint. |
 | Valkey | Dedicated authenticated cache, persistent append-only data, memory policy sized below its container limit. |
 | Storage account | Dedicated custom SeaweedFS image with local S3 endpoint, generated keys, authenticated bucket/object operations, persistent metadata/data, one-volume-at-a-time growth. |
@@ -53,7 +53,7 @@ The development portal and service endpoints bind only to the local machine. The
 | Bastion gateway | Restricted SSH/RDP forwarding to explicitly assigned local resources; browser desktop transport included. |
 | Ubuntu desktop | Actual Xfce desktop with private xrdp, retained certificate and browser keyboard/mouse access. |
 
-WAF, source-build PaaS, and GPU entries are visible as unavailable catalog entries with their implementation/qualification requirements. Job queues, image import, resizing, deployment revisions, service bindings, custom domains/TLS, hard disk quotas, and backup/restore workflows remain on the roadmap.
+WAF, source-build PaaS and GPU entries remain unavailable until their providers/qualification are complete. Finite jobs, private-registry sign-in, image archive import, cross-provider resize, full application/data bindings, application domains/TLS, hard disk quotas and workload backup/restore remain on the roadmap. Container-app image/configuration revisions, CPU/RAM resize and existing retained-data restore are now available.
 
 Browser shell, native SSH, restricted bastions, browser desktop, private subnets, service connectors and associated IPv4 security groups are implemented for this single-host development preview. Follow [the implementation progress log](docs/REMOTE_ACCESS_PROGRESS.md) for evidence and remaining qualification gates. Workspaces and desktops are containers sharing the host kernel; they are not hardware-isolated VMs.
 
@@ -64,6 +64,16 @@ Open **All resources**, select a running Linux workspace, then choose **Shell**.
 Installation administrators and tenant owners can connect. A tenant owner can expand **Manage member shell access**, select a contributor, and grant or revoke access to that workspace. Readers cannot use interactive shells. Recent sessions show connection activity and let authorized users end sessions. Revocation, logout and workspace stop close active connections after the next five-second authorization check.
 
 The localhost development defaults are two shell sessions per resource, five per user, a 15-minute input idle timeout and a two-hour maximum duration. The platform audits connections without storing shell input/output.
+
+## Deploy your own application
+
+Open **Images & secrets** and register an image for the active tenant. Build it locally first, or select the public-registry pull option. Kzure checks the host architecture, records the immutable image identity and keeps a local retained tag for recovery. Save workload secret values there if needed; ordinary settings belong in the environment section of the deployment form.
+
+Choose **Create a resource → Container app**, select the image, HTTP service or continuous worker mode, application TCP port, settings and optional managed data path/storage size. Use the resource's **Configuration** tab for CPU/RAM resize, image/settings updates and revision rollback. Updates briefly replace compute and attempt to restore the previous working configuration on readiness failure. Add a valid health-check command or use an image with a working built-in check. A process-only check cannot prove application behavior.
+
+The included example can be built with `docker build -t kzure/demo-app:0.1.0 images/application-demo`; it uses port `3000`, persistent path `/data`, and optional `GREETING`/`APP_TOKEN` environment settings. **Restore retained resource** reconnects retained data to the same resource. Missing volumes are never replaced with empty data during restore. This is separate from the still-planned workload backup/restore workflow.
+
+See [application progress and limitations](docs/APPLICATION_PROGRESS.md). Private registry sign-in, finite jobs, multiple data mounts, storage/subnet migration, general app hostname/TLS ingress and zero-downtime rollouts remain planned.
 
 ## SSH, desktop and networking
 
@@ -100,7 +110,7 @@ This uses disposable distro workspaces and scoped test users, writes a private r
 
 Create resource requests are transactional and require an idempotency key. CPU/RAM admission checks both host headroom and subscription quotas while holding a PostgreSQL advisory transaction lock. A durable worker processes queued operations and replays abandoned leases after expiry. A periodic reconciler detects missing/stopped managed containers and queues recovery for resources whose desired state is Running.
 
-The agent only manages objects labeled with this installation and resource identity. Each resource gets its own Docker network. Only the agent has the Docker socket. Platform databases and the agent are on a private management network; only the portal is also attached to an ingress network.
+The agent only manages objects labeled with this installation and resource identity. A resource uses its dedicated Docker network or the selected private subnet. Only the agent has the Docker socket. Platform databases and the agent use a private management network; the portal and optional TLS gateway connect through the ingress path.
 
 **Stop:** release compute after the stop is observed; keep persistent data.  
 **Delete:** remove compute/network; keep stateful data in the Retained state.  
