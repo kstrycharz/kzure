@@ -1,9 +1,18 @@
 # Kzure — Docker-based on-premises cloud project plan
 
 **Prepared:** October 26, 2026  
-**Status:** Implementation specification; application and images have not yet been built.  
+**Status:** Original implementation specification with a working single-host development foundation; the full product is not yet complete.
+
 **Confirmed deployment approach:** One host first, expand to multiple hosts later.  
 **Working product name:** Kzure. Use an original identity with an Azure-inspired resource model and portal experience.
+
+## Current execution plan — October 27, 2026
+
+The portal, resource engine, initial service images, browser shells, SSH/bastion, desktop and single-host IPv4 policy are implemented. The source-backed [core functionality gap analysis](docs/CORE_FUNCTIONALITY_GAP_PLAN.md) is now the authoritative implementation order; [implementation status](docs/implementation-status.md) records delivered behavior. The original P0–P10 work packages below remain a design/acceptance reference, not a claim that their sequential dependencies or estimates reflect current progress.
+
+Portal authentication upgrades are deferred at the user's request. OIDC/MFA/SSO must not block the next functional milestones; existing protections remain. Prioritize custom container deployment, stable application endpoints, update/resize/revisions, retained-data recovery and workload backups. Then complete storage safety, practical networking, management/templates, static/object/data workflows and diagnostics. Source-build PaaS, WAF, GPU jobs and complete cost analysis finish the requested single-host catalog. Multiple hosts follow that release.
+
+A complete next user journey is: deploy a custom app with database/storage, configure its secrets and private bindings, open a stable URL, update/resize it, inspect real usage/cost, and restore its data through supported workflows. See F01–F12 and milestones M1–M4 in the new plan for dependencies and concrete acceptance gates.
 
 ## 1. Product objective and boundaries
 

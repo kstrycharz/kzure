@@ -6,6 +6,8 @@ Started: October 26, 2026. Scope: [remote-access plan](REMOTE_ACCESS_NETWORKING_
 
 This is the execution record. A phase is complete only when its stated acceptance evidence has been collected. Existing Docker Desktop workloads and data remain the development installation.
 
+**Functional planning update, October 27:** [CORE_FUNCTIONALITY_GAP_PLAN.md](CORE_FUNCTIONALITY_GAP_PLAN.md) now defines the next implementation sequence. Portal authentication upgrades are deferred by the user. Prioritize general application deployment, stable endpoints, day-two lifecycle and data recovery; reuse the remote-access foundation. F07/F08 capture remaining native RDP, network drift, egress and upgrade work. This update is analysis/documentation only and does not add new runtime test evidence.
+
 ## Current milestone — October 27, 2026
 
 The resumed single-host remote-access milestone is built. Final checks passed: Go unit tests/vet, portal production build, 16 foundation integration groups, 28 browser-shell groups across six minimal and six SSH workspaces, 14 native SSH/network groups, six browser-desktop groups, 17 IPv4 policy groups, and seven CA-verified HTTPS/WSS checks. The desktop suite now includes foreign-Origin rejection and consumed-ticket replay rejection. SSH images remove inherited supplementary groups. Operator-owned image locks retain earlier approved workspace identities for existing resources.
@@ -19,13 +21,13 @@ Remaining release gates: dedicated Linux and physical LAN qualification; OIDC/MF
 | Phase | State | Evidence / remaining work |
 |---|---|---|
 | RA-01: architecture and proofs | In progress | Existing workspace shell verified as UID 1000 in `/data`; terminal architecture selected. Linux firewall and desktop privilege proofs remain. |
-| RA-02: browser shell | Delivered: localhost development | Final 22-group real integration suite passed across all six distros, including output flow control, stalled client, natural exit, permissions, ticket expiry/replay, resize/Ctrl-C, revocation/logout, stop, and agent-restart cleanup/recovery. Remote-release and broader master-plan gates remain open. |
+| RA-02: browser shell | Delivered: localhost development | Final 28-group real integration suite passed across six minimal and six SSH workspace variants, including output flow control, stalled client, natural exit, permissions, ticket expiry/replay, resize/Ctrl-C, revocation/logout, stop, and agent-restart cleanup/recovery. Wider release gates remain open. |
 | RA-03: SSH images | Working development implementation | All six SSH variants built; real native SSH passes across all six. Public-key registration/binding/revocation, retained host identity and persistent homes implemented. Further negative and upgrade tests remain. |
 | RA-04: networking foundation | Working development implementation | Actual private Docker subnets, IP reservations, DNS aliases, explicit TCP connectors and dependency guards implemented. Portal screens added; network enforcement is still labeled limited. |
 | RA-05: native bastion | Working development implementation | Restricted gateway checks key/tenant/target/port authorization and rechecks every five seconds. Active-session revocation tested. Native RDP tunnel and broader concurrency tests pending. |
-| RA-06: browser desktop | Working development implementation | Four protocol integration groups passed. Visual portal verification also passed: actual Xfce desktop, remote mouse interaction, terminal commands, UID 1000 and `/data/home/kzure`. Broader failure, isolation and lifecycle tests remain. |
+| RA-06: browser desktop | Working development implementation | Six protocol integration groups passed, including foreign-Origin and ticket-replay rejection. Visual portal verification passed: actual Xfce desktop, remote mouse interaction, terminal commands, UID 1000 and `/data/home/kzure`. Broader failure, isolation and lifecycle tests remain. |
 | RA-07: enforced networking | Working IPv4 development implementation; 17 groups passed | Scoped adapter, serialized updates/rollback, pre-start enforcement, subnet associations and portal controls built and deployed. Seventeen real packet-test groups passed on disposable subnets, including management deny counters and cross-tenant rejection. Dedicated-host/physical-LAN qualification remains separate. |
-| RA-08: remote release | Partial | Optional loopback HTTPS and CA-verified WSS tested. LAN/dedicated Linux, identity hardening, full recovery and production release remain open. |
+| RA-08: remote release | Partial | Optional loopback HTTPS and CA-verified WSS tested. LAN/dedicated Linux, full recovery and production qualification remain open. Portal identity enhancements are deferred for the current functional plan. |
 
 ## Implementation decisions
 

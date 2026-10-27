@@ -6,6 +6,8 @@ Last updated: October 27, 2026. Release: `0.1.0-dev`.
 
 Final resumed verification: 16 foundation, 28 browser-shell, 14 native-access/network, six desktop and 17 IPv4 policy groups passed, together with seven HTTPS/WSS checks, Go tests/vet and the portal build. Metadata restored into a scratch database with 83 resource records. This is a working single-host development milestone, with the wider master-plan gates still open.
 
+**October 27 functional review:** the [core gap analysis and delivery plan](CORE_FUNCTIONALITY_GAP_PLAN.md) now defines the execution order. Portal authentication upgrades are deferred by user instruction. The immediate gaps are custom image deployment/configuration, stable application endpoints, update/resize/revisions, restore of retained data, and actual workload backup/restore. This was a source/documentation review; no new runtime qualification was performed.
+
 ## Delivered foundation
 
 - React/TypeScript portal: sign-in, dashboard, tenant switcher, catalog, real create-resource wizard, resource details, logs, live metrics, lifecycle actions, group/tenant/subscription creation, operations, cost table/CSV, host capability view, and scoped local-user creation.
@@ -15,37 +17,39 @@ Final resumed verification: 16 foundation, 28 browser-shell, 14 native-access/ne
 - Custom platform, static-site, storage-account, and workspace Docker images; image identity lock; pinned upstream build bases; Compose bootstrap and private generated configuration.
 - Allocation intervals, elapsed showback, retained-storage accounting, and real Docker logs/metrics.
 - Automated unit and integration verification with private local test reports. See the verification report for actual run results; no unexecuted checks are represented as passed.
-- Browser shell for all six Linux workspace distributions: non-root PTY, resize/Ctrl-C/Unicode, reconnect/fullscreen, explicit contributor grants, active-session termination, short-lived single-use tickets, audit metadata, output flow control, and local cleanup after agent failure. The 22-group terminal integration suite passed; see [REMOTE_ACCESS_PROGRESS.md](REMOTE_ACCESS_PROGRESS.md).
-- Subsequent remote-access development: six SSH workspace variants, a restricted native bastion, public-key management, private subnets/IPAM, DNS/service connectors, Ubuntu desktop and browser RDP. The native/network suite passed 14 groups and the desktop protocol suite passed four groups; a real graphical desktop was also verified in the portal. Broader release gates and final regression remain open.
+- Browser shell across six minimal and six SSH workspace variants: non-root PTY, resize/Ctrl-C/Unicode, reconnect/fullscreen, explicit contributor grants, active-session termination, short-lived single-use tickets, audit metadata, output flow control, and local cleanup after agent failure. The final 28-group terminal integration suite passed; see [REMOTE_ACCESS_PROGRESS.md](REMOTE_ACCESS_PROGRESS.md).
+- Remote access and networking: six SSH workspace variants, restricted native bastion, public-key management, private subnets/IPAM, DNS/service connectors, Ubuntu desktop and browser RDP. Native/network verification passed 14 groups, desktop verification passed six groups and IPv4 policy verification passed 17 groups. A real graphical desktop was verified in the portal. Wider failure, recovery and dedicated-host gates remain open.
 
 ## Master-plan gate status
 
 | Phase | Status | Remaining gate work |
 |---|---|---|
-| P0: host proof | Partial | Dedicated Linux host with quota-capable filesystem; local TLS/LAN design; GPU qualification. Docker lifecycle and S3/persistence proofs are exercised on Docker Desktop. |
+| P0: host proof | Partial | Dedicated Linux host with quota-capable filesystem, physical storage inventory and GPU qualification. Optional loopback portal TLS is tested; application ingress/LAN qualification remain. |
 | P1: bootstrap/design | Partial | API contract completeness, full design documentation and clean supported-Linux install qualification. |
-| P2: identity/governance | Partial | OIDC/MFA, RLS using restricted roles, finer scoped permissions, session/account management, audit UI. Local sessions and API tenant boundaries work. |
-| P3: resource engine | Partial | Hard storage quotas, broader failure/retry/fencing tests, resize and provider capability schemas. Basic durable lifecycle and periodic reconciliation work. |
+| P2: identity/governance | Partial; portal auth upgrades deferred | Quota editing, tags, deletion locks, group lifecycle and templates remain functional work. Existing local sessions and API tenant boundaries work. OIDC/MFA/SSO, account redesign and deeper identity hardening are outside the current functional sequence. |
+| P3: resource engine | Partial | Custom images/configuration, revisions/update/rollback, resize, retained restore, spec-drift reconciliation, retry/cancel and complete fencing. Basic durable lifecycle and missing-container recovery work. |
 | P4: static apps | Partial | Archive builds, revisions, atomic routing/rollback, custom domains and TLS. A single HTML/default site deploys to a real container. |
-| P5: storage/MVP | Partial | Portal object browser, key rotation, enforced quota, backup/restore and clean-host release acceptance. Actual signed S3 operations are tested. |
-| P6: PaaS/data | Partial | Source builds, app plans, runtime recipes, private service bindings, database backup/restore. Dedicated database/cache providers run. |
+| P5: storage/MVP | Partial | Object browser, key rotation, managed-volume inventory/reattach, physical usage/admission, enforced quota and workload restore. Signed S3 operations and metadata scratch restore are tested. |
+| P6: PaaS/data | Partial | Source builds, registry, app plans/runtime recipes, configuration/credential bindings, data-service upgrades and database backup/restore. Dedicated database/cache providers and fixed TCP connectors run. |
 | P7: WAF/policy | Partial | IPv4 subnet policy, UI and 17 packet-test groups delivered. WAF provider, wider egress qualification and no-bypass ingress remain. |
-| P8: Linux/GPU jobs | Partial | Browser shell is delivered for localhost development across all six distros. Home management, CPU job queue, GPU inventory and actual device qualification remain. Six Linux images are built and verified as non-root with writable /data. |
+| P8: Linux/GPU jobs | Partial | Browser shell works across six minimal and six SSH variants, plus a graphical desktop. CPU batch/scheduled jobs, artifacts, GPU inventory/reservations and real device execution remain. |
 | P9: costing | Partial | Editable effective-dated rates, budgets, GPU meters, outage uncertainty, overhead pools. Fixed-rate numeric allocation accounting and CSV are present. |
 | P10: release | Partial | Full recovery/upgrade drill, SBOM/vulnerability/signature checks, accessibility qualification, offline bundle and production hardening. Development image builds and localhost boot work. |
 | R3: multiple hosts | Planned | Enrollment/mTLS, placement, data locality/migration, fencing and HA design. |
 
 ## Current execution priorities
 
-The remote-access scope is specified in [REMOTE_ACCESS_NETWORKING_PLAN.md](REMOTE_ACCESS_NETWORKING_PLAN.md). Browser shell and development SSH/bastion/desktop/network foundations are implemented; enforced networking has unfinished source and remote-release gates remain open. Work is paused. Use the detailed progress log for the resume order rather than treating all phases as planned or complete. The foundation backlog below remains relevant, particularly identity, isolation, and recovery dependencies.
+Use [F01–F12 in the core gap plan](CORE_FUNCTIONALITY_GAP_PLAN.md), rather than the historical pause checklist, for new work. Portal authentication enhancements are deferred; no authentication changes or feature implementation were made during this planning pass.
 
-1. Keep the current Docker integration tests passing and qualify broader recovery/concurrency cases.
-2. Add a managed image import path so container apps can deploy operator-approved application images.
-3. Browser shell with separate authorization/audit is delivered for localhost development. Continue the remote-access track with SSH images, private networking, bastions and desktops, following its remaining gates.
-4. Implement local HTTPS ingress, explicit private service connections, and WAF protection with no direct-origin bypass.
-5. Implement restricted database roles/RLS and federated identity, then qualify tenant isolation at both API and network layers.
-6. Implement the hard-quota storage adapter and backup/restore on the actual supported Linux deployment host.
-7. Extend PaaS builds, jobs/GPU scheduling and cost controls to meet the remaining master-plan gates.
+1. **Host a real custom application:** F01 custom images/configuration, F02 stable app endpoints and F03 update/resize/revisions, with minimum F08 operation fencing and image-upgrade continuity.
+2. **Recover data:** start F04 retained-data restore immediately; deliver provider-aware workload backup/restore and a clean installation recovery drill. Retained resources currently expose purge only.
+3. **Protect physical capacity:** F05 disk usage/headroom/admission and qualified quotas; account for backups/images/builds as well as declared workload data.
+4. **Finish everyday service workflows:** F06 multi-file static sites, object browser and database/application bindings; F07 outbound routing/DNS/observed-policy repair; F09 quota editing, tags, templates and dependency-aware management.
+5. **Make operations visible and reliable:** extend F08 retry/cancel, reconciliation, health history/alerts, upgrades and clean-host acceptance throughout the work.
+6. **Complete requested service families:** source-build PaaS, F10 WAF and F11 CPU/GPU jobs; preserve explicit hardware qualification gates.
+7. **Complete cost analysis:** F12 editable rates, date ranges, budgets, GPU and infrastructure overhead alongside the resources they meter. Current fixed-rate showback is a starting point.
+
+The core missing journey is custom app → stable endpoint → private database/storage binding → safe update/resize → monitoring/cost → backup/restore. Multi-host and HA follow a useful single-host release. Existing Linux resources remain containers; true VM support would need a separate hypervisor provider.
 
 ## Operator notes
 
