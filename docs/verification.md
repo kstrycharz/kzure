@@ -2,6 +2,12 @@
 
 This report records actual checks on the user's local Docker Desktop Linux engine. It does not certify production or hostile-tenant isolation.
 
+## Managed application and data journey
+
+The combined development pass completed **13 application-ingress groups**, **13 managed-binding groups**, **22 IPv4 policy groups**, **16 foundation groups**, **seven portal HTTPS/WSS checks**, Go tests/vet and the portal build. The generic application regression passed all 19 groups before checkpoint publication. Native SSH/desktop and the full shell suite remain earlier evidence; they were not repeated in this pass.
+
+The example app performed actual PostgreSQL writes, signed S3 object round trips and Valkey operations through private bindings over CA-verified application HTTPS. The example-stack script completed twice with preserved resource IDs/data. The public API reference now records 51 paths; the local release manifest contains 25 current catalog/platform images. See [ingress progress](APPLICATION_INGRESS_PROGRESS.md) and [binding progress](APPLICATION_BINDINGS_PROGRESS.md) for scope and remaining gates.
+
 ## Reliability implementation qualification
 
 The deployed reliability slice passed **22 IPv4 policy groups**, **11 operation-recovery groups**, **16 foundation groups** and **seven CA-verified HTTPS/WSS checks**. The final application regression passed **19 groups**, including verified restoration of the original demo image tag. See [RELIABILITY_PROGRESS.md](RELIABILITY_PROGRESS.md) for the detailed evidence. Go unit tests/vet passed. The private local release manifest records 24 current catalog/platform image identities.

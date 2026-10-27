@@ -16,3 +16,14 @@
 /* Application image library and deployment settings. */
 .application-options{border:1px solid var(--border,#e3e8ed);border-radius:12px;padding:18px;margin:20px 0;min-width:0}.application-options legend{font-weight:650;padding:0 8px}.application-options label,.application-library label{display:flex;flex-direction:column;gap:7px;margin:14px 0}.application-options small{font-size:12px;line-height:1.5;color:#65758a}.application-settings-list{margin:18px 0}.application-settings-list h3{font-size:14px;margin-bottom:8px}.application-setting-row{display:flex;gap:10px;align-items:end}.application-setting-row label{flex:1;min-width:0;margin:8px 0}.application-setting-row button{margin-bottom:8px}.application-library .panel{padding:24px}.application-library .checkbox{flex-direction:row;align-items:center}.application-inventory>div{border-top:1px solid #e3e8ed;padding:16px 0;display:flex;flex-direction:column;gap:6px}.application-inventory code{font-size:11px;overflow-wrap:anywhere}.application-inventory small{color:#65758a}.application-options details{margin-top:20px}.application-options summary{cursor:pointer;font-weight:600}.application-library form input:not([type=checkbox]),.application-options input,.application-options select,.application-options textarea{width:100%}@media(max-width:650px){.application-setting-row{flex-wrap:wrap}}
 .application-configuration>form>fieldset{border:0;padding:0;margin:0;min-width:0}.application-configuration label{display:flex;flex-direction:column;gap:7px}.application-configuration input{width:100%}.application-revision{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0;border-bottom:1px solid #e3e8ed}.application-revision small{display:block;margin-top:6px;color:#65758a}.application-revision p{font-size:12px;line-height:1.5;margin:8px 0 0}.application-revision button{flex-shrink:0}
+
+.application-configuration input,.application-configuration select,.application-configuration textarea{width:100%;min-height:38px;padding:9px 11px;border:1px solid #dce4ee;border-radius:7px;background:#fff;color:#263c57;font-size:12px}
+.application-configuration>form{margin:16px 0}
+.application-configuration>form>fieldset{display:flex;flex-direction:column;gap:14px}
+.application-configuration>form>fieldset>.button{align-self:flex-start}
+.application-configuration>label{margin:14px 0}
+.application-configuration>p{margin:10px 0 16px;line-height:1.6}
+.application-bindings .application-revision{display:block}
+.application-bindings .application-revision>.button{margin-top:12px}
+.application-bindings .detail-list{grid-template-columns:minmax(120px,1fr) minmax(0,1.25fr);gap:10px 16px}
+.application-bindings .detail-list dt,.application-bindings .detail-list dd{min-width:0;overflow-wrap:anywhere}

@@ -117,6 +117,16 @@ func appPort(r Resource) int {
 	return c.Port
 }
 func validateAppSpec(s Spec) error {
+	if len(s.ServiceBindings) > 16 {
+		return errors.New("maximum 16 application service bindings")
+	}
+	bindings := map[string]bool{}
+	for _, bid := range s.ServiceBindings {
+		if len(bid) != 32 || strings.Trim(bid, "0123456789abcdef") != "" || bindings[bid] {
+			return errors.New("invalid or duplicate application binding reference")
+		}
+		bindings[bid] = true
+	}
 	if s.Image != "" && s.Image != "nginxinc/nginx-unprivileged:1.29-alpine" && !imageIdentity.MatchString(s.Image) {
 		return errors.New("select a registered immutable application image")
 	}
@@ -187,10 +197,18 @@ func (a *App) validateAppReferences(r *http.Request, tid, kind string, s Spec) e
 			return bad("application image is not registered for this tenant")
 		}
 	}
-	if len(s.SecretEnvironment) > 0 && !actor(r).Admin {
+	if (len(s.SecretEnvironment) > 0 || len(s.ServiceBindings) > 0) && !actor(r).Admin {
 		role, _ := a.role(actor(r).ID, tid)
 		if role != "owner" {
 			return apiError{403, "Owner permission required to bind workload secrets"}
+		}
+	}
+	if len(s.ServiceBindings) > 0 {
+		if r.PathValue("id") == "" {
+			return bad("Create the application before adding managed data bindings")
+		}
+		if _, _, err := a.bindingValues(tid, r.PathValue("id"), s); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -209,6 +227,36 @@ func (a *App) applicationSecrets(tid, kind string, s Spec, values map[string]str
 			return nil, e
 		}
 		values["env:"+name] = plain["value"]
+	}
+	settings, secrets, err := a.bindingValues(tid, "", s)
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range settings {
+		if _, conflict := s.Environment[key]; conflict {
+			return nil, bad("An ordinary setting conflicts with a managed binding")
+		}
+		if _, conflict := s.SecretEnvironment[key]; conflict {
+			return nil, bad("A secret reference conflicts with a managed binding")
+		}
+		values["public-env:"+key] = value
+	}
+	for key, value := range secrets {
+		if _, conflict := s.Environment[key]; conflict {
+			return nil, bad("An ordinary setting conflicts with a managed binding")
+		}
+		if _, conflict := s.SecretEnvironment[key]; conflict {
+			return nil, bad("A secret reference conflicts with a managed binding")
+		}
+		values["env:"+key] = value
+	}
+	environment := applicationEnvironment(s, values)
+	size := 0
+	for _, v := range environment {
+		size += len(v)
+	}
+	if len(environment) > 64 || size > 65536 {
+		return nil, bad("Combined application and binding environment exceeds its limits")
 	}
 	return values, nil
 }
@@ -385,8 +433,12 @@ func applicationEnvironment(s Spec, secrets map[string]string) []string {
 	for k, v := range s.Environment {
 		values[k] = v
 	}
-	for k := range s.SecretEnvironment {
-		values[k] = secrets["env:"+k]
+	for k, v := range secrets {
+		if name, ok := strings.CutPrefix(k, "env:"); ok {
+			values[name] = v
+		} else if name, ok := strings.CutPrefix(k, "public-env:"); ok {
+			values[name] = v
+		}
 	}
 	keys := []string{}
 	for k := range values {

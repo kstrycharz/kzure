@@ -88,7 +88,7 @@ The development portal and service endpoints bind only to the local machine. The
 | Bastion gateway | Restricted SSH/RDP forwarding to explicitly assigned local resources; browser desktop transport included. |
 | Ubuntu desktop | Actual Xfce desktop with private xrdp, retained certificate and browser keyboard/mouse access. |
 
-WAF, source-build PaaS and GPU entries remain unavailable until their providers/qualification are complete. Finite jobs, private-registry sign-in, image archive import, cross-provider resize, full application/data bindings, application domains/TLS, hard disk quotas and workload backup/restore remain on the roadmap. Container-app image/configuration revisions, CPU/RAM resize and existing retained-data restore are now available.
+WAF, source-build PaaS and GPU entries remain unavailable until their providers/qualification are complete. Finite jobs, private-registry sign-in, image archive import, cross-provider resize, provider credential rotation/upgrades, supplied custom domains/certificates and replicas, hard disk quotas and workload backup/restore remain on the roadmap. Container-app image/configuration revisions, CPU/RAM resize and existing retained-data restore are now available.
 
 Browser shell, native SSH, restricted bastions, browser desktop, private subnets, service connectors and associated IPv4 security groups are implemented for this single-host development preview. Follow [the implementation progress log](docs/REMOTE_ACCESS_PROGRESS.md) for evidence and remaining qualification gates. Workspaces and desktops are containers sharing the host kernel; they are not hardware-isolated VMs.
 
@@ -99,6 +99,22 @@ Open **All resources**, select a running Linux workspace, then choose **Shell**.
 Installation administrators and tenant owners can connect. A tenant owner can expand **Manage member shell access**, select a contributor, and grant or revoke access to that workspace. Readers cannot use interactive shells. Recent sessions show connection activity and let authorized users end sessions. Revocation, logout and workspace stop close active connections after the next five-second authorization check.
 
 The localhost development defaults are two shell sessions per resource, five per user, a 15-minute input idle timeout and a two-hour maximum duration. The platform audits connections without storing shell input/output.
+
+## Connect applications to data services
+
+Open a running container app and choose **Bindings** to connect PostgreSQL, Valkey or S3. Kzure provides a private connection and injects the displayed settings through a configuration revision. Passwords and keys stay encrypted in metadata and are supplied to the application process. Wait for Running between changes. See [binding progress](docs/APPLICATION_BINDINGS_PROGRESS.md) for variable names and lifecycle behavior.
+
+For a complete local example, run:
+
+~~~sh
+node scripts/create-example-stack.mjs
+~~~
+
+This creates an example resource group with an API, database, cache and storage account, connects them and verifies live data operations. It records IDs privately so rerunning reuses its resources without resetting their data. The API's /bindings route demonstrates database writes, S3 object round trips and cache increments. Its managed HTTPS URL and public CA are available in the portal.
+
+## Managed application HTTPS
+
+Open a running static site or HTTP container app and choose **Endpoint → Create HTTPS endpoint**. Kzure creates a stable name under apps.kzure.localhost, served on port 8444 by a shared local gateway. The address survives updates and retained restore; unready applications are withdrawn from routing. Download the application CA from that tab to configure client trust. If your client cannot resolve the localhost subdomain, map the displayed hostname to 127.0.0.1. See [application ingress progress](docs/APPLICATION_INGRESS_PROGRESS.md) for setup and scope.
 
 ## Deploy your own application
 

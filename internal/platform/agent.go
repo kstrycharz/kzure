@@ -29,6 +29,7 @@ type dockerClient struct {
 	policyFingerprint      string
 	controlURL, agentToken string
 	resourceGates          resourceGates
+	ingressMu              sync.Mutex
 }
 type dockerError struct {
 	status  int
@@ -640,6 +641,7 @@ func (a *App) RunAgent() error {
 	d.remoteAgentRoutes(mux)
 	d.desktopAgentRoutes(mux)
 	d.policyRoutes(mux)
+	d.ingressAgentRoutes(mux)
 	mux.HandleFunc("POST /applications/replace", a.handle(func(w http.ResponseWriter, r *http.Request) error {
 		var in replacementRequest
 		if e := decode(r, &in); e != nil {

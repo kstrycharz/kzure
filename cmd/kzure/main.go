@@ -16,6 +16,16 @@ func main() {
 		log.Fatal(platform.RunBastion())
 		return
 	}
+	if mode == "edge" {
+		log.Fatal(platform.RunEdge())
+		return
+	}
+	if mode == "edge-status" {
+		if err := platform.EdgeStatus(); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if mode == "tls-init" && len(os.Args) == 4 {
 		if e := platform.GenerateLocalTLS(os.Args[2], os.Args[3]); e != nil {
 			log.Fatal(e)

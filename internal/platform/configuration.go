@@ -79,6 +79,9 @@ func (a *App) configurationRoutes(mux *http.ServeMux) {
 	}))
 }
 func (a *App) saveApplicationConfiguration(w http.ResponseWriter, r *http.Request, expected int, spec Spec) error {
+	return a.withBindingLock(func() error { return a.saveApplicationConfigurationLocked(w, r, expected, spec) })
+}
+func (a *App) saveApplicationConfigurationLocked(w http.ResponseWriter, r *http.Request, expected int, spec Spec) error {
 	res, e := a.resource(r.PathValue("id"))
 	if e != nil {
 		return e
@@ -88,6 +91,9 @@ func (a *App) saveApplicationConfiguration(w http.ResponseWriter, r *http.Reques
 	}
 	if res.Type != "container-app" {
 		return bad("configuration revisions currently support container apps")
+	}
+	if expected != res.Revision {
+		return apiError{409, "Configuration changed; refresh before saving"}
 	}
 	if e = validateSpec(res.Type, res.Name, spec); e != nil {
 		return bad(e.Error())
@@ -115,6 +121,9 @@ func (a *App) saveApplicationConfiguration(w http.ResponseWriter, r *http.Reques
 	if e != nil {
 		return e
 	}
+	if e = a.prepareBindingConnections(r.Context(), res, spec); e != nil {
+		return e
+	}
 	var host Host
 	if e = a.agent(r.Context(), "GET", "/host", nil, &host); e != nil {
 		return apiError{503, "Node agent is unavailable"}
@@ -135,7 +144,7 @@ func (a *App) saveApplicationConfiguration(w http.ResponseWriter, r *http.Reques
 	if expected != revision || expected < 1 {
 		return apiError{409, "Configuration changed; refresh before saving"}
 	}
-	if state != "Running" && state != "Stopped" && state!="Failed" {
+	if state != "Running" && state != "Stopped" && state != "Failed" {
 		return apiError{409, "Wait for the current operation or restore retained data before editing"}
 	}
 	var busy int

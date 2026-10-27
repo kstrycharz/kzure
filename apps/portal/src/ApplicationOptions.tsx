@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-export type AppSpec={image?:string;mode?:string;port?:number;environment?:Record<string,string>;secretEnvironment?:Record<string,string>;command?:string[];healthcheck?:string[];mountPath?:string};
+export type AppSpec={image?:string;mode?:string;port?:number;environment?:Record<string,string>;secretEnvironment?:Record<string,string>;command?:string[];healthcheck?:string[];mountPath?:string;serviceBindings?:string[]};
 type Image={id:string;name:string;reference:string;imageId:string;architecture:string};
 type Secret={id:string;name:string};
 async function call<T>(path:string,body?:unknown):Promise<T>{const r=await fetch('/api'+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-Kzure-Request':'portal'},body:body?JSON.stringify(body):undefined});const out=await r.json();if(!r.ok)throw new Error(out.error||'Request failed');return out}

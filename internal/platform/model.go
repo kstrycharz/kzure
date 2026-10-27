@@ -50,6 +50,7 @@ type Spec struct {
 	Command           []string          `json:"command,omitempty"`
 	Healthcheck       []string          `json:"healthcheck,omitempty"`
 	MountPath         string            `json:"mountPath,omitempty"`
+	ServiceBindings   []string          `json:"serviceBindings,omitempty"`
 }
 type Resource struct {
 	Revision        int       `json:"revision"`

@@ -12,6 +12,10 @@ Final resumed verification: 16 foundation, 28 browser-shell, 14 native-access/ne
 
 **Subsequent reliability implementation:** observed firewall drift repair, independent periodic maintenance, conditional lease heartbeats, locked initial state transitions and agent checks of current operation ownership before guarded lifecycle mutations are implemented. See [RELIABILITY_PROGRESS.md](RELIABILITY_PROGRESS.md) for evidence and limitations. The next application milestone is hostname/TLS ingress and managed data bindings. Full in-flight/distributed fencing and complete F07/F08 qualification remain open.
 
+**Subsequent application ingress:** static sites and HTTP container apps now have managed loopback HTTPS hostnames, readiness-gated routing, an Endpoint tab, persistent application CA/leaf renewal and gateway recovery. Thirteen ingress groups passed. See [APPLICATION_INGRESS_PROGRESS.md](APPLICATION_INGRESS_PROGRESS.md). Supplied certificates/custom domains, replicas and LAN qualification remain; managed data bindings are next.
+
+**Subsequent managed bindings:** the portal now supports app-to-PostgreSQL/Valkey/S3 bindings with stable private aliases, encrypted credential snapshots, revision-based bind/unbind and saved binding rollback. The example HTTP app performs real operations against all three services over managed HTTPS. See [APPLICATION_BINDINGS_PROGRESS.md](APPLICATION_BINDINGS_PROGRESS.md). Workload backups/restore and physical storage protection are next; provider credential rotation/upgrades remain open.
+
 ## Delivered foundation
 
 - React/TypeScript portal: sign-in, dashboard, tenant switcher, catalog, real create-resource wizard, resource details, logs, live metrics, lifecycle actions, group/tenant/subscription creation, operations, cost table/CSV, host capability view, and scoped local-user creation.
@@ -32,9 +36,9 @@ Final resumed verification: 16 foundation, 28 browser-shell, 14 native-access/ne
 | P1: bootstrap/design | Partial | API contract completeness, full design documentation and clean supported-Linux install qualification. |
 | P2: identity/governance | Partial; portal auth upgrades deferred | Quota editing, tags, deletion locks, group lifecycle and templates remain functional work. Existing local sessions and API tenant boundaries work. OIDC/MFA/SSO, account redesign and deeper identity hardening are outside the current functional sequence. |
 | P3: resource engine | Partial | Custom application images/configuration, revisions/rollback, CPU/RAM resize and retained restore are delivered. Lease heartbeats, guarded lifecycle dispatch and independent reconciliation are delivered. Full spec drift, other-provider updates, retry/cancel and distributed/in-flight side-effect guarantees remain. |
-| P4: static apps | Partial | Archive builds, revisions, atomic routing/rollback, custom domains and TLS. A single HTML/default site deploys to a real container. |
+| P4: static apps | Partial | Managed loopback TLS is delivered. Archive builds, static revisions/rollback, supplied custom domains and certificates remain. A single HTML/default site deploys to a real container. |
 | P5: storage/MVP | Partial | Object browser, key rotation, managed-volume inventory/reattach, physical usage/admission, enforced quota and workload restore. Signed S3 operations and metadata scratch restore are tested. |
-| P6: PaaS/data | Partial | Source builds, registry, app plans/runtime recipes, configuration/credential bindings, data-service upgrades and database backup/restore. Dedicated database/cache providers and fixed TCP connectors run. |
+| P6: PaaS/data | Partial | Managed data bindings are delivered. Source builds, registry, app plans/runtime recipes, provider configuration/credential rotation, data-service upgrades and database backup/restore remain. Dedicated database/cache providers and fixed TCP connectors run. |
 | P7: WAF/policy | Partial | IPv4 subnet policy, UI and 17 packet-test groups delivered. Observed firewall repair is delivered; WAF provider, wider egress qualification and no-bypass ingress remain. |
 | P8: Linux/GPU jobs | Partial | Browser shell works across six minimal and six SSH variants, plus a graphical desktop. CPU batch/scheduled jobs, artifacts, GPU inventory/reservations and real device execution remain. |
 | P9: costing | Partial | Editable effective-dated rates, budgets, GPU meters, outage uncertainty, overhead pools. Fixed-rate numeric allocation accounting and CSV are present. |
@@ -45,7 +49,7 @@ Final resumed verification: 16 foundation, 28 browser-shell, 14 native-access/ne
 
 Use [F01–F12 in the core gap plan](CORE_FUNCTIONALITY_GAP_PLAN.md), rather than the historical pause checklist, for new work. Portal authentication enhancements are deferred; no authentication changes or feature implementation were made during this planning pass.
 
-1. **Complete application hosting:** the initial F01/F03 custom-image/configuration/revision/resize/rollback workflow is built. Finish F02 hostname/TLS ingress and a verified custom app + database/storage binding journey; extend F08 reconciliation and recovery.
+1. **Complete application hosting:** the initial F01/F03 custom-image/configuration/revision/resize/rollback workflow is built. The loopback F02 hostname/TLS and PostgreSQL/Valkey/S3 binding journey is built. Preserve its qualification while finishing remaining endpoint modes/replicas; extend F08 reconciliation and recovery.
 2. **Recover data:** retained resources now have a Restore action that reuses existing data safely. Deliver provider-aware workload backup/restore and a clean installation recovery drill; retained data on the same disk is not a backup.
 3. **Protect physical capacity:** F05 disk usage/headroom/admission and qualified quotas; account for backups/images/builds as well as declared workload data.
 4. **Finish everyday service workflows:** F06 multi-file static sites, object browser and database/application bindings; F07 outbound routing/DNS and wider host qualification (observed-policy repair is delivered); F09 quota editing, tags, templates and dependency-aware management.

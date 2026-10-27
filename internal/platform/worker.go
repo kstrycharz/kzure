@@ -61,6 +61,8 @@ func (a *App) RunWorker() error {
 	// Each maintenance loop is serial, but independent of long provisioning
 	// calls. In particular a stalled deployment must not delay firewall repair.
 	go runMaintenance("network policy", 20*time.Second, a.syncNetworkPolicies)
+	go runMaintenance("application ingress", 20*time.Second, a.syncIngress)
+	go runMaintenance("application bindings", 5*time.Second, a.reconcileApplicationBindings)
 	go runMaintenance("resource maintenance", 20*time.Second, func() error {
 		err := a.reconcile()
 		a.reconcileRemote()
@@ -179,10 +181,17 @@ func (a *App) workOne() error {
 		return e
 	}
 	var out Observation
+	// Withdraw routes and wait for the gateway's acknowledgement before changing
+	// compute. A replacement candidate cannot inherit a ready route prematurely.
+	var hasEndpoint bool
+	e = a.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM application_endpoints WHERE resource_id=$1)", rid).Scan(&hasEndpoint)
+	if e == nil && hasEndpoint {
+		e = a.syncIngress()
+	}
 	var previous Resource
 	var previousCipher string
 	var replacement replacementResult
-	if action == "update" {
+	if e == nil && action == "update" {
 		previous = res
 		previous.Spec = Spec{}
 		var oldSpec []byte
@@ -215,7 +224,7 @@ func (a *App) workOne() error {
 			}
 			out = replacement.Observation
 		}
-	} else if action == "create" || action == "start" || action == "restore" {
+	} else if e == nil && (action == "create" || action == "start" || action == "restore") {
 		var encrypted string
 		if e = a.DB.QueryRow("SELECT secret_cipher FROM resources WHERE id=$1", rid).Scan(&encrypted); e == nil {
 			var sec map[string]string
@@ -239,7 +248,7 @@ func (a *App) workOne() error {
 				}
 			}
 		}
-	} else {
+	} else if e == nil {
 		e = a.ownsOperation(ctx, oid, attempt)
 		if e == nil {
 			e = a.agent(ctx, "POST", "/resources/"+rid+"/actions", map[string]string{"action": action}, &out)
@@ -335,6 +344,9 @@ func (a *App) workOne() error {
 		return e
 	}
 	if out.State == "Deleted" {
+		if _, e = tx.Exec("DELETE FROM application_endpoints WHERE resource_id=$1", rid); e != nil {
+			return e
+		}
 		if _, e = tx.Exec("DELETE FROM ip_allocations WHERE resource_id=$1", rid); e != nil {
 			return e
 		}
@@ -360,5 +372,18 @@ func (a *App) workOne() error {
 	if _, e = tx.Exec("UPDATE operations SET state=$3,message=$1,updated_at=now(),lease_until=NULL WHERE id=$2", message, oid, operationState); e != nil {
 		return e
 	}
-	return tx.Commit()
+	if e = tx.Commit(); e != nil {
+		return e
+	}
+	if hasEndpoint {
+		if e = a.syncIngress(); e != nil {
+			log.Printf("application ingress after operation: %v", e)
+		}
+	}
+	if res.Type == "container-app" {
+		if err := a.reconcileApplicationBindings(); err != nil {
+			log.Printf("application binding cleanup: %v", err)
+		}
+	}
+	return nil
 }

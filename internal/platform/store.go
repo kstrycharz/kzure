@@ -53,7 +53,7 @@ func OpenDB(url string) (DB, error) {
 	return DB{db}, nil
 }
 func (a *App) Migrate() error {
-	_, e := a.DB.Exec(schema + terminalSchema + remoteSchema + networkSchema + desktopSchema + policySchema + applicationSchema)
+	_, e := a.DB.Exec(schema + terminalSchema + remoteSchema + networkSchema + desktopSchema + policySchema + applicationSchema + ingressSchema + bindingSchema)
 	if e != nil {
 		return e
 	}

@@ -2,7 +2,9 @@ FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec
 ARG DEMO_VERSION=1
 ENV DEMO_VERSION=$DEMO_VERSION
 WORKDIR /app
+RUN apk add --no-cache postgresql18-client
 COPY server.cjs ./
+COPY bindings.cjs ./
 RUN mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 3000

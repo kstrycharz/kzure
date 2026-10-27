@@ -516,12 +516,20 @@ func (a *App) createServiceConnection(w http.ResponseWriter, r *http.Request) er
 }
 
 func (a *App) deleteServiceConnection(w http.ResponseWriter, r *http.Request) error {
+	return a.withBindingLock(func() error { return a.deleteServiceConnectionLocked(w, r) })
+}
+func (a *App) deleteServiceConnectionLocked(w http.ResponseWriter, r *http.Request) error {
 	var tid string
 	if e := a.DB.QueryRow("SELECT tenant_id FROM service_connections WHERE id=$1", r.PathValue("id")).Scan(&tid); e != nil {
 		return e
 	}
 	if e := a.scope(r, tid, true); e != nil {
 		return e
+	}
+	if used, err := a.bindingConnectionInUse(r.PathValue("id")); err != nil {
+		return err
+	} else if used {
+		return apiError{409, "Remove the application binding and wait for its revision before deleting this connector"}
 	}
 	if e := a.agent(r.Context(), "DELETE", "/connectors/"+r.PathValue("id"), nil, nil); e != nil {
 		return e

@@ -12,6 +12,10 @@
 
 The main missing journey is a custom app with a stable HTTPS hostname, managed private database/storage bindings, and recovery from an actual workload backup. Existing local ports survive application recreation; retained-volume restore reuses data on the existing disk. Neither feature completes managed ingress or disaster recovery.
 
+Managed loopback application hostnames and TLS are now implemented, with 13 ingress groups passed. See [ingress progress](docs/APPLICATION_INGRESS_PROGRESS.md) for operator steps and remaining certificate/domain/replica gates. Managed data bindings have since been added; workload backups are the next priority.
+
+Managed PostgreSQL/Valkey/S3 application bindings are implemented, with an example HTTP application proving actual data operations through its managed HTTPS endpoint. See [binding progress](docs/APPLICATION_BINDINGS_PROGRESS.md). Credential rotation/provider upgrades remain separate gates. The next implementation work is provider-aware workload backups and restoration into fresh volumes, followed by physical storage protection.
+
 ### Execution sequence and release gates
 
 | Milestone | Next work | Gate |

@@ -137,6 +137,8 @@ func (a *App) RunAPI() error {
 	a.networkRoutes(secured)
 	a.desktopRoutes(secured)
 	a.applicationRoutes(secured)
+	a.ingressRoutes(secured)
+	a.bindingRoutes(secured)
 	a.networkPolicyRoutes(secured)
 	secured.HandleFunc("GET /api/me", a.handle(func(w http.ResponseWriter, r *http.Request) error { jsonOut(w, 200, actor(r)); return nil }))
 	secured.HandleFunc("POST /api/logout", a.handle(func(w http.ResponseWriter, r *http.Request) error {

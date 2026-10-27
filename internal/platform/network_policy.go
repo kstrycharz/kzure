@@ -37,6 +37,7 @@ type PolicyLink struct {
 type PolicyRequest struct {
 	Resources []PolicyResource `json:"resources"`
 	Links     []PolicyLink     `json:"links"`
+	Ingress   []string         `json:"ingress,omitempty"`
 }
 type policyEndpoint struct {
 	PolicyResource
@@ -174,6 +175,23 @@ func (a *App) syncNetworkPoliciesLocked() error {
 	rows.Close()
 	var response struct {
 		Generation string `json:"generation"`
+	}
+	rows, e = a.DB.QueryContext(ctx, "SELECT e.resource_id FROM application_endpoints e JOIN resources r ON r.id=e.resource_id WHERE r.state='Running' ORDER BY e.resource_id")
+	if e != nil {
+		return e
+	}
+	for rows.Next() {
+		var rid string
+		if e = rows.Scan(&rid); e != nil {
+			rows.Close()
+			return e
+		}
+		p.Ingress = append(p.Ingress, rid)
+	}
+	e = rows.Err()
+	rows.Close()
+	if e != nil {
+		return e
 	}
 	e = a.agent(ctx, "POST", "/network-policy", p, &response)
 	if e != nil {

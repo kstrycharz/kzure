@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -18,7 +19,7 @@ func (d *dockerClient) policyRoutes(mux *http.ServeMux) {
 			jsonOut(w, 400, map[string]string{"error": e.Error()})
 			return
 		}
-		if len(p.Resources) > 128 || len(p.Links) > 256 {
+		if len(p.Resources) > 128 || len(p.Links) > 256 || len(p.Ingress) > 128 {
 			jsonOut(w, 400, map[string]string{"error": "Network policy exceeds this host's development limits"})
 			return
 		}
@@ -142,6 +143,39 @@ func (d *dockerClient) applyPolicy(ctx context.Context, p PolicyRequest) (string
 					if ip := proxy.NetworkSettings.Networks[targetNet].IPAddress; ip != "" {
 						allow("", ip, link.TargetID, targetIP, link.Port)
 					}
+				}
+			}
+		}
+	}
+	if len(p.Ingress) > 0 {
+		edge, err := d.inspect(ctx, ingressID(d.install))
+		if err != nil && !is404(err) {
+			return "", err
+		}
+		if err == nil {
+			if edge.Config.Labels["io.kzure.type"] != "application-ingress" {
+				return "", errors.New("Application gateway identity mismatch")
+			}
+			for _, rid := range p.Ingress {
+				target, err := d.inspect(ctx, rid)
+				if is404(err) {
+					continue
+				}
+				if err != nil {
+					return "", err
+				}
+				network, ip, err := primaryNetwork(target)
+				if err != nil {
+					continue // a stopped/starting application has no ingress path
+				}
+				port := 8080
+				if target.Config.Labels["io.kzure.type"] == "container-app" {
+					port, _ = strconv.Atoi(target.Config.Labels["io.kzure.service-port"])
+				} else if target.Config.Labels["io.kzure.type"] != "static-web" {
+					return "", errors.New("Invalid ingress policy target")
+				}
+				if gatewayIP := edge.NetworkSettings.Networks[network].IPAddress; gatewayIP != "" && port > 0 && port <= 65535 {
+					allow("", gatewayIP, rid, ip, port)
 				}
 			}
 		}
