@@ -1,0 +1,8 @@
+{
+ "ubuntu":"ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac",
+ "debian":"debian:13-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad",
+ "alpine":"alpine:3.23@sha256:ff7f0c727dd796aa36787bfcd9a64bf35a6ce72a73451b3359fde849b6703d63",
+ "fedora":"fedora:43@sha256:a651ddf48ea28a06ed4e1e6519f51c9f47e7a5a138722ade87369b8fbb7e5b42",
+ "rocky":"rockylinux/rockylinux:9-minimal@sha256:e1d0a9f5ed99d52e7faf03afe7ee32e48b231c4dd9586808b3d1aedf894dff04",
+ "alma":"almalinux:9-minimal@sha256:8e56ca192f602eb1c486b870f268730f4b08179b43845184a3623c6634f5d01a"
+}

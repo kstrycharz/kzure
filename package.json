@@ -1,0 +1,11 @@
+{
+  "name": "kzure-development-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:terminal": "node scripts/test-terminal.mjs"
+  },
+  "devDependencies": {
+    "ws": "8.22.0"
+  }
+}

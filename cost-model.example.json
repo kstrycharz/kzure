@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "1.0",
+  "status": "planning-example-not-an-implemented-api-contract",
+  "rateCardId": "illustrative-local-2026-10",
+  "effectiveFrom": "2026-10-26T00:00:00Z",
+  "currency": "USD",
+  "description": "Invented internal showback rates, not Azure or market prices. Replace with operator-defined rates or capacity credits.",
+  "monthHoursForEstimates": 730,
+  "timeBasis": "Actual elapsed UTC seconds divided by 3600; split intervals at allocation and rate changes.",
+  "billingBasis": "allocated-capacity",
+  "rounding": "Use decimal arithmetic; round currency to two decimals only for final display.",
+  "rates": {
+    "vcpuHour": "0.010",
+    "ramGiBHour": "0.002",
+    "gpuDeviceHourByClass": {
+      "example-gpu-class": "0.500"
+    },
+    "storageGiBHourByClass": {
+      "local-ssd": "0.000140"
+    }
+  },
+  "policy": {
+    "defaultCpuOvercommitRatio": 1,
+    "defaultRamOvercommitRatio": 1,
+    "gpuAllocation": "exclusive-whole-device",
+    "stopComputeCharge": "confirmed-deallocation",
+    "stopGpuCharge": "confirmed-device-release",
+    "stopStorageCharge": "confirmed-storage-release",
+    "retainedStorageIsCharged": true,
+    "observedUtilizationIsAdditionalCharge": false,
+    "gpuVramChargeOnTopOfWholeGpu": false,
+    "appPlanChargeOnTopOfChildren": false,
+    "platformOverhead": "separate-visible-pool",
+    "missingTelemetry": "flag-uncertain-and-reconcile-do-not-assume-zero",
+    "budgetActionDefault": "alert-only"
+  },
+  "examples": [
+    {
+      "resource": "Static site",
+      "vcpu": "0.25",
+      "ramGiB": "0.25",
+      "gpuCount": 0,
+      "storageGiB": "1",
+      "storageClass": "local-ssd",
+      "computeHours": "730",
+      "storageHours": "730",
+      "expectedUnroundedCost": "2.292200"
+    },
+    {
+      "resource": "Storage account",
+      "vcpu": "0.5",
+      "ramGiB": "1",
+      "gpuCount": 0,
+      "storageGiB": "100",
+      "storageClass": "local-ssd",
+      "computeHours": "730",
+      "storageHours": "730",
+      "expectedUnroundedCost": "15.330000"
+    },
+    {
+      "resource": "Web app",
+      "vcpu": "1",
+      "ramGiB": "2",
+      "gpuCount": 0,
+      "storageGiB": "10",
+      "storageClass": "local-ssd",
+      "computeHours": "730",
+      "storageHours": "730",
+      "expectedUnroundedCost": "11.242000"
+    },
+    {
+      "resource": "PostgreSQL",
+      "vcpu": "1",
+      "ramGiB": "2",
+      "gpuCount": 0,
+      "storageGiB": "20",
+      "storageClass": "local-ssd",
+      "computeHours": "730",
+      "storageHours": "730",
+      "expectedUnroundedCost": "12.264000"
+    },
+    {
+      "resource": "Dedicated WAF",
+      "vcpu": "0.5",
+      "ramGiB": "0.5",
+      "gpuCount": 0,
+      "storageGiB": "1",
+      "storageClass": "local-ssd",
+      "computeHours": "730",
+      "storageHours": "730",
+      "expectedUnroundedCost": "4.482200"
+    },
+    {
+      "resource": "GPU workspace",
+      "vcpu": "8",
+      "ramGiB": "32",
+      "gpuCount": 1,
+      "gpuClass": "example-gpu-class",
+      "storageGiB": "100",
+      "storageClass": "local-ssd",
+      "computeHours": "120",
+      "storageHours": "730",
+      "expectedUnroundedCost": "87.500000"
+    }
+  ],
+  "expectedPortfolioUnroundedCost": "133.110400",
+  "expectedPortfolioDisplayCost": "133.11",
+  "excludedFromExamples": [
+    "Platform overhead",
+    "Backups",
+    "Build jobs and scratch space",
+    "Registry and image cache",
+    "Additional replicas",
+    "Additional storage metadata/headroom beyond the illustrative allocations"
+  ]
+}

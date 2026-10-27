@@ -1,0 +1,22 @@
+import https from 'node:https';
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import WebSocket from 'ws';
+const root=resolve(import.meta.dirname,'..');
+const config=Object.fromEntries(readFileSync(resolve(root,'.env'),'utf8').trim().split(/\r?\n/).map(l=>{const i=l.indexOf('=');return[l.slice(0,i),l.slice(i+1)]}));
+const ca=readFileSync(resolve(root,'.local/tls/ca.crt'));
+let cookie='';
+function request(path,method='GET',body,origin='https://localhost:8443'){return new Promise((res,rej)=>{const r=https.request({hostname:'localhost',port:8443,path:'/api'+path,method,ca,headers:{Origin:origin,'Content-Type':'application/json','X-Kzure-Request':'portal',Cookie:cookie}},s=>{let text='';s.on('data',b=>text+=b);s.on('end',()=>res({status:s.statusCode,headers:s.headers,body:JSON.parse(text)}))});r.on('error',rej);r.end(body?JSON.stringify(body):undefined)})}
+assert.equal((await request('/health')).status,200);
+const login=await request('/login','POST',{email:config.KZURE_ADMIN_EMAIL,password:config.KZURE_ADMIN_PASSWORD});assert.equal(login.status,200);const set=login.headers['set-cookie'][0];assert.match(set,/; Secure/i);assert.match(set,/HttpOnly/i);cookie=set.split(';')[0];
+assert.equal((await request('/me')).status,200);
+const tenants=(await request('/tenants')).body;const tenant=tenants.find(t=>t.name==='Home lab');
+const resources=(await request('/resources?tenant='+tenant.id)).body;const workspace=resources.find(r=>r.type.startsWith('workspace-')&&r.state==='Running');assert(workspace);
+const grant=await request('/resources/'+workspace.id+'/terminal-sessions','POST',{});assert.equal(grant.status,201);
+await new Promise((resolve,reject)=>{const ws=new WebSocket('wss://localhost:8443/api/terminal-sessions/'+grant.body.id+'/stream',{ca,headers:{Cookie:cookie,Origin:'https://localhost:8443'}});const timer=setTimeout(()=>{ws.terminate();reject(new Error('HTTPS terminal handshake timed out'))},15000);ws.on('open',()=>ws.send(JSON.stringify({type:'auth',ticket:grant.body.ticket})));ws.on('error',reject);ws.on('message',raw=>{const frame=JSON.parse(raw.toString());if(frame.type==='ready'){clearTimeout(timer);ws.close();resolve()}else if(frame.type==='error'){clearTimeout(timer);ws.terminate();reject(new Error('HTTPS terminal authentication failed'))}})});
+assert.equal((await request('/logout','POST',{},'https://localhost:8443.evil.test')).status,403);
+assert.equal((await request('/logout','POST',{})).status,200);
+assert.equal((await request('/me')).status,401);
+writeFileSync(resolve(root,'.local/https-report.json'),JSON.stringify({at:new Date().toISOString(),passed:7,checks:['CA-verified TLS health','Secure HttpOnly login cookie','Authenticated request','Authenticated CA-verified WSS terminal','Foreign origin rejected','Logout','Session revoked']},null,2)+'\n');
+console.log('PASS 7 HTTPS checks with certificate-chain verification enabled.');

@@ -1,0 +1,9 @@
+# Dedicated single-node accounts grow one volume at a time.
+# The upstream default grows seven at once, inappropriate for small accounts.
+[master.volume_growth]
+copy_1 = 1
+copy_2 = 1
+copy_3 = 1
+copy_other = 1
+threshold = 0.9
+disable = false

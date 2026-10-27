@@ -1,0 +1,8 @@
+node_modules
+apps/portal/node_modules
+apps/portal/dist
+.git
+.env
+.local
+*.log
+

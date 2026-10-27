@@ -1,0 +1,32 @@
+{
+  "generatedAt": "2026-10-27T04:01:43.913Z",
+  "images": {
+    "nginxinc/nginx-unprivileged:1.29-alpine": "nginxinc/nginx-unprivileged@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+    "postgres:18-alpine": "postgres@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
+    "valkey/valkey:8-alpine": "valkey/valkey@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507",
+    "kzure/static-web:0.1.0": "sha256:4bbdca95827687d5c97e8a007e530d13a5870b7960fc87381881e0cde3864ce8",
+    "kzure/storage-seaweed:0.1.0": "sha256:b8d6766812aeec746090c3f9cc79151782aef2052317a728d61d90eef17c070a",
+    "kzure/workspace-ubuntu:0.1.0": "sha256:65b6a309c945b58de7a0c06a5f23ac960acdf7cb8d23f0c346f315d579794047",
+    "kzure/workspace-debian:0.1.0": "sha256:36dd7c7e20f0acb8c0434e6db22c5379cec48cc6888bec9a69a8ad14c95cb6ad",
+    "kzure/workspace-alpine:0.1.0": "sha256:f3df8559a7a2d179ea2057271fc3632e4b56826aebf8daa58751ae733fd6cdcc",
+    "kzure/workspace-fedora:0.1.0": "sha256:3f7dc32ee3297049123a6d8e41343b3a2d5eeb692ed6e6a5c52ff707c92e120f",
+    "kzure/workspace-rocky:0.1.0": "sha256:fa53044d00af13228ddb198a299851619227f0681242161827fe3eb49067108a",
+    "kzure/workspace-alma:0.1.0": "sha256:7dd0916c22ff3ad4a8dcf20d7d1b428e439e7bd18c8d6eeb262ce691cacd071a",
+    "kzure/workspace-ssh-ubuntu:0.1.0": "sha256:73cf3061dcd667141b5f556187f1c394738b94aa27bba37d530b0d56bebb80fe",
+    "kzure/workspace-ssh-debian:0.1.0": "sha256:b1717f6cecc6ed9015a034459e0361ff4f7a1ba6390213b74a8ed87786608168",
+    "kzure/workspace-ssh-alpine:0.1.0": "sha256:cbe06717b0b043da8120a08a9dd738c87529e29b978dd3281f735aa9ab487e02",
+    "kzure/workspace-ssh-fedora:0.1.0": "sha256:302970ea7066f9eb81728e9aaff25d5f7328eef5c6721428beaf0cbebe5f8e15",
+    "kzure/workspace-ssh-rocky:0.1.0": "sha256:2e04eb3f2b9bd5ce15da9887f6bb54684b6285f12ef3b737792160760af7336d",
+    "kzure/workspace-ssh-alma:0.1.0": "sha256:3a1bc5b2ed70c8b4ba75b27fbad8aa677755a60d58cc88b50ca7479f5ff16978",
+    "kzure/bastion:0.1.0": "sha256:4c131247df887f48a289ec37daee5eb9f3360d75af62197b248342dcb2621a8e",
+    "kzure/desktop-ubuntu:0.1.0": "sha256:7d9076bce13f7a5f3568ffd7143d231bb3107376d0bc5b4fca21f592b4ef120f",
+    "kzure/network-policy:0.1.0": "sha256:7ec5c670f4b290d9b1c3634c12ab0cc23849505c037ed7ebbba8c265d2802182",
+    "guacamole/guacd:1.6.0": "guacamole/guacd@sha256:8974eaa9ba32f713daf311e7cc8cd7e4cdfba1edea39eed75524e78ef4b08f4f",
+    "history/kzure/workspace-ssh-ubuntu:0.1.0/sha256:9b0f4dde979c45fe0248b866293378f988ea25ffb0d2b2b55edc9a2c2e84105d": "sha256:9b0f4dde979c45fe0248b866293378f988ea25ffb0d2b2b55edc9a2c2e84105d",
+    "history/kzure/workspace-ssh-debian:0.1.0/sha256:63baa01284b85679fea2bd957f611fa95ab02905a27c6099e30ba5f92b0ee9ba": "sha256:63baa01284b85679fea2bd957f611fa95ab02905a27c6099e30ba5f92b0ee9ba",
+    "history/kzure/workspace-ssh-alpine:0.1.0/sha256:c5d7f8232c435b61a776bbca276ccabd27fae60612e00ce17e85c2b2f8c9769c": "sha256:c5d7f8232c435b61a776bbca276ccabd27fae60612e00ce17e85c2b2f8c9769c",
+    "history/kzure/workspace-ssh-fedora:0.1.0/sha256:d675cb6af36c79586096c2052c3a091a6107f2e3b0fd3b2107727365c3882edb": "sha256:d675cb6af36c79586096c2052c3a091a6107f2e3b0fd3b2107727365c3882edb",
+    "history/kzure/workspace-ssh-rocky:0.1.0/sha256:715301893353b58d1f0c16034fa0b3724cb4309a93e8e39d0a0e9a130240a404": "sha256:715301893353b58d1f0c16034fa0b3724cb4309a93e8e39d0a0e9a130240a404",
+    "history/kzure/workspace-ssh-alma:0.1.0/sha256:a40e7e3ff542af499bda1764f1c8abbf11444c6a3b445ca5dfbfbcf601fce083": "sha256:a40e7e3ff542af499bda1764f1c8abbf11444c6a3b445ca5dfbfbcf601fce083"
+  }
+}

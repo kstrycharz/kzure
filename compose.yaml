@@ -1,0 +1,90 @@
+name: kzure
+x-control: &control
+  image: kzure/control-plane:0.1.0
+  restart: unless-stopped
+  environment: &environment
+    DATABASE_URL: postgres://kzure:${KZURE_DB_PASSWORD:?Run scripts/configure.mjs}@database:5432/kzure?sslmode=disable
+    KZURE_AGENT_URL: http://agent:8091
+    KZURE_AGENT_TOKEN: ${KZURE_AGENT_TOKEN}
+    KZURE_ENCRYPTION_KEY: ${KZURE_ENCRYPTION_KEY}
+    KZURE_INSTALL_ID: ${KZURE_INSTALL_ID}
+  networks: [management]
+  read_only: true
+  tmpfs: [/tmp:size=32m]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  mem_limit: 256m
+  cpus: 1
+  logging: {driver: json-file, options: {max-size: 5m, max-file: '2'}}
+services:
+  database:
+    image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kzure
+      POSTGRES_USER: kzure
+      POSTGRES_PASSWORD: ${KZURE_DB_PASSWORD}
+    volumes: [platform-db:/var/lib/postgresql]
+    networks: [management]
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -U kzure -d kzure'], interval: 5s, timeout: 3s, retries: 20}
+    mem_limit: 512m
+    cpus: 1
+    logging: {driver: json-file, options: {max-size: 5m, max-file: '2'}}
+  api:
+    <<: *control
+    build: .
+    command: [api]
+    networks: [management, access-control]
+    environment:
+      <<: *environment
+      KZURE_ADMIN_EMAIL: ${KZURE_ADMIN_EMAIL}
+      KZURE_ADMIN_PASSWORD: ${KZURE_ADMIN_PASSWORD}
+      KZURE_ORIGIN: http://localhost:${KZURE_PORT:-8088}
+    depends_on:
+      database: {condition: service_healthy}
+      agent: {condition: service_started}
+    healthcheck: {test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8090/api/health'], interval: 5s, timeout: 3s, retries: 20}
+  worker:
+    <<: *control
+    command: [worker]
+    depends_on:
+      api: {condition: service_healthy}
+  agent:
+    image: kzure/control-plane:0.1.0
+    command: [agent]
+    user: '0:0'
+    restart: unless-stopped
+    environment:
+      KZURE_AGENT_TOKEN: ${KZURE_AGENT_TOKEN}
+      KZURE_INSTALL_ID: ${KZURE_INSTALL_ID}
+      KZURE_PUBLIC_HOST: 127.0.0.1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./.local/images.lock.json:/config/images.lock.json:ro
+    networks: [management]
+    read_only: true
+    tmpfs: [/tmp:size=32m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 1
+    logging: {driver: json-file, options: {max-size: 5m, max-file: '2'}}
+  portal:
+    image: kzure/portal:0.1.0
+    build: ./apps/portal
+    restart: unless-stopped
+    ports: ['127.0.0.1:${KZURE_PORT:-8088}:8080']
+    networks: [management, ingress]
+    depends_on:
+      api: {condition: service_healthy}
+    mem_limit: 128m
+    cpus: 0.5
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging: {driver: json-file, options: {max-size: 5m, max-file: '2'}}
+networks:
+  management: {internal: true}
+  ingress: {}
+  access-control: {internal: true}
+volumes:
+  platform-db:
