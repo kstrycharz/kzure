@@ -4,7 +4,7 @@ A local cloud portal that provisions real Docker resources on your own hardware.
 
 **Current release: 0.1.0 development preview.** The portal, API, worker, and restricted Docker agent run as separate containers with PostgreSQL-backed state. The complete roadmap and acceptance gates are in [PROJECT_PLAN.md](PROJECT_PLAN.md). Current progress and limitations are recorded in [docs/implementation-status.md](docs/implementation-status.md).
 
-The current [core functionality gap plan](docs/CORE_FUNCTIONALITY_GAP_PLAN.md) prioritizes custom application deployment, stable app endpoints, update/resize, retained-data recovery, workload backups and the remaining single-host service catalog. Portal authentication enhancements are deferred from this functional implementation sequence.
+The current [core functionality gap plan](docs/CORE_FUNCTIONALITY_GAP_PLAN.md) prioritizes custom application deployment, stable app endpoints, update/resize, retained-data recovery, workload backups and the remaining single-host service catalog. Portal authentication enhancements are deferred from this functional implementation sequence. Observed firewall repair and operation takeover safeguards are implemented; see [reliability progress](docs/RELIABILITY_PROGRESS.md) for verification and scope.
 
 ## Screenshots
 

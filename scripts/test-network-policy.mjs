@@ -1,6 +1,6 @@
 import{readFileSync,writeFileSync}from'node:fs';
 import{resolve}from'node:path';
-import{spawnSync}from'node:child_process';
+import{spawn,spawnSync}from'node:child_process';
 import{randomBytes,randomUUID,randomInt}from'node:crypto';
 import assert from'node:assert/strict';
 const root=resolve(import.meta.dirname,'..');const config=Object.fromEntries(readFileSync(resolve(root,'.env'),'utf8').split(/\r?\n/).filter(l=>l.includes('=')).map(l=>{const i=l.indexOf('=');return[l.slice(0,i),l.slice(i+1)]}));
@@ -32,7 +32,29 @@ try{
  await api('/subnets/'+subnet.id+'/security-group',{method:'PUT',body:{securityGroupId:sg.id}});
  assert(!request(source,'http://'+targetIP+':8080'));assert(!request(source,hostURL));pass('Default-deny policy blocks same-subnet traffic and new host connections');
  const prefix='KZ'+config.KZURE_INSTALL_ID.slice(0,8);const original=baseline.split('\n').filter(l=>!l.includes('-j '+prefix+'F'));const after=inspect().split('\n').filter(l=>!l.includes('-j '+prefix+'F'));assert.deepEqual(after,original);pass('Existing Docker/operator firewall rules remain intact');
+ const iptables=(args)=>docker(['run','--rm','--network','host','--cap-drop','ALL','--cap-add','NET_ADMIN','--entrypoint','iptables','kzure/network-policy:0.1.0',...args]).text;
+ async function repaired(check){for(let i=0;i<90;i++){if(check())return;await pause(500)}throw Error('Periodic observed-policy repair timed out')}
+ const driftGeneration=(await api('/networking?tenant='+tenant.id)).policyGeneration;
+ iptables(['-D','DOCKER-USER','-j',prefix+'F']);
+ await repaired(()=>iptables(['-S','DOCKER-USER']).includes('-A DOCKER-USER -j '+prefix+'F'));
+ assert.equal((await api('/networking?tenant='+tenant.id)).policyGeneration,driftGeneration);assert(!request(source,'http://'+targetIP+':8080'));pass('Periodic repair restores a removed owned hook without a desired-generation change');
+ const driftChain=prefix+'G'+driftGeneration+'O'+source.id.slice(0,6);
+ iptables(['-D',driftChain,'-j','DROP']);
+ await repaired(()=>iptables(['-S',driftChain]).includes('-A '+driftChain+' -j DROP'));
+ assert(!request(source,'http://'+targetIP+':8080'));pass('Periodic repair restores a removed rule inside the unchanged owned generation');
+ iptables(['-F',prefix+'F']);
+ await repaired(()=>iptables(['-S',prefix+'F']).includes('-j '+prefix+'G'+driftGeneration+'F'));
+ assert(!request(source,'http://'+targetIP+':8080'));pass('A previously observed empty owned stable chain is repaired safely');
+ // An unreachable documentation address makes this operator rule inert while
+ // proving that a moved hook is repaired without deleting its preceding rule.
+ iptables(['-I','DOCKER-USER','1','-s','192.0.2.1/32','-m','comment','--comment','kzure-test-'+suffix,'-j','RETURN']);
+ try{await repaired(()=>iptables(['-S','DOCKER-USER']).split('\n').filter(l=>l.startsWith('-A '))[0]==='-A DOCKER-USER -j '+prefix+'F');assert(iptables(['-S','DOCKER-USER']).includes('kzure-test-'+suffix));pass('Periodic repair restores hook priority while preserving an unrelated operator rule')}
+ finally{iptables(['-D','DOCKER-USER','-s','192.0.2.1/32','-m','comment','--comment','kzure-test-'+suffix,'-j','RETURN'])}
  await update([allow(100,'outbound'),{...allow(200,'outbound'),action:'deny'},allow(300,'inbound')]);assert(request(source,'http://'+targetIP+':8080'));pass('Priority-100 allow wins over a matching lower-priority deny');
+ const clientPort=randomInt(30000,50000);const held=spawn('docker',['exec','-i',source.containerId,'nc','-p',String(clientPort),targetIP,'8080'],{stdio:['pipe','ignore','ignore'],windowsHide:true});
+ const flow=()=>docker(['run','--rm','--network','host','--cap-drop','ALL','--cap-add','NET_ADMIN','--entrypoint','conntrack','kzure/network-policy:0.1.0','-L','-p','tcp','--orig-src',sourceIP,'--orig-dst',targetIP,'--sport',String(clientPort),'--dport','8080']).text.includes('ESTABLISHED');
+ try{await repaired(flow);for(let i=0;i<2;i++)await update([allow(100,'outbound'),{...allow(200,'outbound'),action:'deny'},allow(300,'inbound')]);assert(flow());pass('Unchanged observed policy checks preserve an established TCP connection')}
+ finally{held.stdin.end();held.kill()}
  await update([{...allow(100,'outbound'),action:'deny'},allow(200,'outbound'),allow(300,'inbound')]);assert(!request(source,'http://'+targetIP+':8080'));pass('Priority-100 deny wins over a matching lower-priority allow');
  await update([allow(100,'outbound',0),allow(200,'inbound',0)]);assert(request(source,'http://'+targetIP+':8080'));assert(!request(source,hostURL));pass('An allow-all user policy cannot override the platform host boundary');
  docker(['run','--rm','--network','container:'+source.containerId,'--cap-drop','ALL','--cap-add','NET_ADMIN','--entrypoint','ip','kzure/network-policy:0.1.0','route','add','default','via','10.'+octet+'.1.1']);

@@ -27,6 +27,10 @@ func (a *App) agent(ctx context.Context, method, path string, in, out any) error
 		return e
 	}
 	req.Header.Set("Authorization", "Bearer "+a.AgentToken)
+	if claim, ok := ctx.Value(operationClaimKey{}).(operationClaim); ok {
+		req.Header.Set("X-Kzure-Operation", claim.ID)
+		req.Header.Set("X-Kzure-Attempt", fmt.Sprint(claim.Attempt))
+	}
 	req.Header.Set("Content-Type", "application/json")
 	res, e := (&http.Client{Timeout: 9 * time.Minute}).Do(req)
 	if e != nil {
@@ -54,23 +58,29 @@ func (a *App) RunWorker() error {
 	if e := a.reconcileNetworks(); e != nil {
 		log.Printf("network recovery: %v", e)
 	}
-	lastReconcile := time.Now().Add(-time.Minute)
+	// Each maintenance loop is serial, but independent of long provisioning
+	// calls. In particular a stalled deployment must not delay firewall repair.
+	go runMaintenance("network policy", 20*time.Second, a.syncNetworkPolicies)
+	go runMaintenance("resource maintenance", 20*time.Second, func() error {
+		err := a.reconcile()
+		a.reconcileRemote()
+		a.reconcileConnections()
+		return err
+	})
 	for {
 		if e := a.workOne(); e != nil {
 			log.Printf("worker: %v", e)
 		}
-		if time.Since(lastReconcile) > 20*time.Second {
-			if e := a.reconcile(); e != nil {
-				log.Printf("reconcile: %v", e)
-			}
-			lastReconcile = time.Now()
-			a.reconcileRemote()
-			a.reconcileConnections()
-			if e := a.syncNetworkPolicies(); e != nil {
-				log.Printf("network policy: %v", e)
-			}
-		}
 		time.Sleep(time.Second)
+	}
+}
+
+func runMaintenance(name string, interval time.Duration, fn func() error) {
+	for {
+		if err := fn(); err != nil {
+			log.Printf("%s: %v", name, err)
+		}
+		time.Sleep(interval)
 	}
 }
 
@@ -155,11 +165,16 @@ func (a *App) workOne() error {
 	if e != nil {
 		return e
 	}
+	ctx, stopLease := keepOperationLease(context.Background(), 15*time.Second, func(ctx context.Context) error {
+		return a.renewOperation(ctx, oid, attempt)
+	})
+	defer stopLease()
+	ctx = context.WithValue(ctx, operationClaimKey{}, operationClaim{ID: oid, Attempt: attempt})
 	res, e := a.resource(rid)
 	if e != nil {
 		return e
 	}
-	_, e = a.DB.Exec("UPDATE resources SET state=$1,error='',updated_at=now() WHERE id=$2", map[string]string{"update": "Updating", "restore": "Provisioning", "create": "Provisioning", "start": "Provisioning", "restart": "Updating", "stop": "Updating", "delete": "Deleting", "purge": "Deleting"}[action], rid)
+	e = a.markOperationResource(ctx, oid, rid, attempt, map[string]string{"update": "Updating", "restore": "Provisioning", "create": "Provisioning", "start": "Provisioning", "restart": "Updating", "stop": "Updating", "delete": "Deleting", "purge": "Deleting"}[action])
 	if e != nil {
 		return e
 	}
@@ -194,7 +209,10 @@ func (a *App) workOne() error {
 			e = a.syncNetworkPolicies()
 		}
 		if e == nil {
-			e = a.agent(context.Background(), "POST", "/applications/replace", replacementRequest{Next: ProvisionRequest{Resource: res, Secrets: sec, Network: network}, Previous: ProvisionRequest{Resource: previous, Secrets: oldSec, Network: network}}, &replacement)
+			e = a.ownsOperation(ctx, oid, attempt)
+			if e == nil {
+				e = a.agent(ctx, "POST", "/applications/replace", replacementRequest{Next: ProvisionRequest{Resource: res, Secrets: sec, Network: network}, Previous: ProvisionRequest{Resource: previous, Secrets: oldSec, Network: network}}, &replacement)
+			}
 			out = replacement.Observation
 		}
 	} else if action == "create" || action == "start" || action == "restore" {
@@ -207,26 +225,37 @@ func (a *App) workOne() error {
 				network, e = a.networkFor(res)
 				if e == nil {
 					if network != nil {
-						e = a.agent(context.Background(), "POST", "/networks", map[string]string{"id": network.ID, "tenantId": res.TenantID, "cidr": network.CIDR}, nil)
+						e = a.agent(ctx, "POST", "/networks", map[string]string{"id": network.ID, "tenantId": res.TenantID, "cidr": network.CIDR}, nil)
 					}
 					if e == nil {
 						e = a.syncNetworkPolicies()
 					}
 				}
 				if e == nil {
-					e = a.agent(context.Background(), "POST", "/ensure", ProvisionRequest{Restore: action == "restore", Resource: res, Secrets: sec, Network: network, SSHKeys: a.authorizedKeys(res.ID)}, &out)
+					e = a.ownsOperation(ctx, oid, attempt)
+					if e == nil {
+						e = a.agent(ctx, "POST", "/ensure", ProvisionRequest{Restore: action == "restore", Resource: res, Secrets: sec, Network: network, SSHKeys: a.authorizedKeys(res.ID)}, &out)
+					}
 				}
 			}
 		}
 	} else {
-		e = a.agent(context.Background(), "POST", "/resources/"+rid+"/actions", map[string]string{"action": action}, &out)
+		e = a.ownsOperation(ctx, oid, attempt)
+		if e == nil {
+			e = a.agent(ctx, "POST", "/resources/"+rid+"/actions", map[string]string{"action": action}, &out)
+		}
+	}
+	// Never run restore cleanup or write a terminal result on behalf of a lost
+	// attempt: cleanup could otherwise delete the replacement attempt's compute.
+	if ownershipError := a.ownsOperation(ctx, oid, attempt); ownershipError != nil {
+		return ownershipError
 	}
 	if e != nil {
 		message := e.Error()
 		failureState, failureDesired := "Failed", res.Desired
 		if action == "restore" {
 			var retained Observation
-			if cleanupError := a.agent(context.Background(), "POST", "/resources/"+rid+"/actions", map[string]string{"action": "delete"}, &retained); cleanupError == nil {
+			if cleanupError := a.agent(ctx, "POST", "/resources/"+rid+"/actions", map[string]string{"action": "delete"}, &retained); cleanupError == nil {
 				failureState, failureDesired = "Retained", "Deleted"
 			}
 		}
@@ -239,7 +268,7 @@ func (a *App) workOne() error {
 		}
 		defer tx.Rollback()
 		var claimed int
-		if err = tx.QueryRow("SELECT attempts FROM operations WHERE id=$1 AND state='Running' FOR UPDATE", oid).Scan(&claimed); err != nil {
+		if err = tx.QueryRow("SELECT attempts FROM operations WHERE id=$1 AND state='Running' AND lease_until>now() FOR UPDATE", oid).Scan(&claimed); err != nil {
 			return err
 		}
 		if claimed != attempt {
@@ -267,7 +296,7 @@ func (a *App) workOne() error {
 	}
 	defer tx.Rollback()
 	var currentAttempt int
-	if e = tx.QueryRow("SELECT attempts FROM operations WHERE id=$1 FOR UPDATE", oid).Scan(&currentAttempt); e != nil {
+	if e = tx.QueryRow("SELECT attempts FROM operations WHERE id=$1 AND state='Running' AND lease_until>now() FOR UPDATE", oid).Scan(&currentAttempt); e != nil {
 		return e
 	}
 	if currentAttempt != attempt {

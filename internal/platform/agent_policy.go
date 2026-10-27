@@ -150,8 +150,12 @@ func (d *dockerClient) applyPolicy(ctx context.Context, p PolicyRequest) (string
 	if e != nil {
 		return "", e
 	}
+	// A desired generation alone cannot prove that the host still enforces it.
+	// The adapter compares the observed owned chains and hooks with the snapshot
+	// recorded after the last successful apply, repairing drift when necessary.
+	fingerprint := ""
 	if generation == d.policyGeneration {
-		return generation, nil
+		fingerprint = d.policyFingerprint
 	}
 	image := d.imageLocks["kzure/network-policy:0.1.0"]
 	if image == "" {
@@ -159,7 +163,7 @@ func (d *dockerClient) applyPolicy(ctx context.Context, p PolicyRequest) (string
 	}
 	rid := id()
 	labels := d.labels(Resource{ID: rid, Type: "network-policy"})
-	cfg := map[string]any{"Image": image, "Labels": labels, "Cmd": []string{"apply"}, "Env": []string{"KZURE_INSTALL_ID=" + d.install}, "HostConfig": map[string]any{"NetworkMode": "host", "CapDrop": []string{"ALL"}, "CapAdd": []string{"NET_ADMIN"}, "Memory": int64(128 * 1024 * 1024), "NanoCpus": int64(500000000), "PidsLimit": 64, "SecurityOpt": []string{"no-new-privileges:true"}}}
+	cfg := map[string]any{"Image": image, "Labels": labels, "Cmd": []string{"reconcile"}, "Env": []string{"KZURE_INSTALL_ID=" + d.install, "KZURE_POLICY_FINGERPRINT=" + fingerprint}, "HostConfig": map[string]any{"NetworkMode": "host", "CapDrop": []string{"ALL"}, "CapAdd": []string{"NET_ADMIN"}, "Memory": int64(128 * 1024 * 1024), "NanoCpus": int64(500000000), "PidsLimit": 64, "SecurityOpt": []string{"no-new-privileges:true"}}}
 	raw, e = d.call(ctx, "POST", "/containers/create?name="+d.name(rid), cfg)
 	if e != nil {
 		return "", e
@@ -187,11 +191,38 @@ func (d *dockerClient) applyPolicy(ctx context.Context, p PolicyRequest) (string
 		return "", e
 	}
 	var result struct{ StatusCode int }
-	_ = json.Unmarshal(raw, &result)
+	if e = json.Unmarshal(raw, &result); e != nil {
+		return "", e
+	}
+	logs, e := d.logs(ctx, rid)
+	if e != nil {
+		return "", e
+	}
 	if result.StatusCode != 0 {
-		logs, _ := d.logs(ctx, rid)
 		return "", fmt.Errorf("Network policy adapter failed (%d): %s", result.StatusCode, logs)
 	}
+	fingerprint, e = policyFingerprint(logs)
+	if e != nil {
+		return "", e
+	}
 	d.policyGeneration = generation
+	d.policyFingerprint = fingerprint
 	return generation, nil
+}
+
+func policyFingerprint(logs string) (string, error) {
+	for _, line := range strings.Split(logs, "\n") {
+		// Docker logs are requested with an RFC3339 timestamp prefix.
+		if timestamp, message, ok := strings.Cut(line, " "); ok {
+			if _, err := time.Parse(time.RFC3339Nano, timestamp); err == nil {
+				line = message
+			}
+		}
+		if value, ok := strings.CutPrefix(line, "KZURE_POLICY_FINGERPRINT="); ok {
+			if len(value) == 64 && strings.Trim(value, "0123456789abcdef") == "" {
+				return value, nil
+			}
+		}
+	}
+	return "", errors.New("Network policy adapter returned no valid observed fingerprint")
 }

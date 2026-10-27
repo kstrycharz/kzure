@@ -78,6 +78,7 @@ func (a *App) handle(fn func(http.ResponseWriter, *http.Request) error) http.Han
 }
 func (a *App) RunAPI() error {
 	mux := http.NewServeMux()
+	a.operationRoutes(mux)
 	var mu sync.Mutex
 	attempts := map[string][]time.Time{}
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {

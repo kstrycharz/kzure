@@ -2,6 +2,12 @@
 
 This report records actual checks on the user's local Docker Desktop Linux engine. It does not certify production or hostile-tenant isolation.
 
+## Reliability implementation qualification
+
+The deployed reliability slice passed **22 IPv4 policy groups**, **11 operation-recovery groups**, **16 foundation groups** and **seven CA-verified HTTPS/WSS checks**. The final application regression passed **19 groups**, including verified restoration of the original demo image tag. See [RELIABILITY_PROGRESS.md](RELIABILITY_PROGRESS.md) for the detailed evidence. Go unit tests/vet passed. The private local release manifest records 24 current catalog/platform image identities.
+
+The network additions verify repair of removed hooks/rules, flushed owned chains and hook priority, preservation of unrelated operator rules, and survival of an established TCP connection during unchanged checks. Operation tests deliberately supersede disposable create/restore attempts and verify renewal, stale-request rejection, continued policy observation, fresh recovery and no stale restore cleanup. This is a single-agent Docker Desktop qualification, with explicit daemon/in-flight and distributed fencing limits. Earlier shell/native/desktop results below were not rerun in this reliability pass. No portal source changed.
+
 ## Final resumed milestone
 
 Subsequent application implementation: **19 application groups + three pull/connector/volume groups passed**. Regression results after those changes: **16 foundation, 28 shell, 17 IPv4 policy and seven HTTPS/WSS checks passed**, plus Go tests/vet and portal build. Metadata scratch restore passed with 106 resource records; the current catalog/platform manifest contains 24 image identities. Native SSH/desktop results below remain earlier evidence; they were not rerun in this application pass. See [APPLICATION_PROGRESS.md](APPLICATION_PROGRESS.md) for exact behavior and remaining gates.

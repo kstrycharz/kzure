@@ -61,3 +61,18 @@ func TestEmptyPolicyCanRemoveLastAssociation(t *testing.T) {
 		t.Fatal("invalid empty generation")
 	}
 }
+
+func TestObservedPolicyFingerprintRequiresValidAdapterEvidence(t *testing.T) {
+	fingerprint := strings.Repeat("ab", 32)
+	for _, logs := range []string{"KZURE_POLICY_FINGERPRINT=" + fingerprint + "\n", "2026-10-27T10:00:00.123456789Z KZURE_POLICY_FINGERPRINT=" + fingerprint + "\n"} {
+		got, err := policyFingerprint(logs)
+		if err != nil || got != fingerprint {
+			t.Fatalf("valid observed fingerprint rejected: %q %v", got, err)
+		}
+	}
+	for _, logs := range []string{"", "Applied Kzure-owned filter generation", "KZURE_POLICY_FINGERPRINT=invalid", "untrusted KZURE_POLICY_FINGERPRINT=" + fingerprint, "KZURE_POLICY_FINGERPRINT=" + strings.Repeat("G", 64)} {
+		if _, err := policyFingerprint(logs); err == nil {
+			t.Fatal("invalid or missing adapter evidence accepted")
+		}
+	}
+}

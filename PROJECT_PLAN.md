@@ -8,13 +8,24 @@
 
 ## Current execution plan — October 27, 2026
 
-The portal, resource engine, initial service images, browser shells, SSH/bastion, desktop and single-host IPv4 policy are implemented. The source-backed [core functionality gap analysis](docs/CORE_FUNCTIONALITY_GAP_PLAN.md) is now the authoritative implementation order; [implementation status](docs/implementation-status.md) records delivered behavior. The original P0–P10 work packages below remain a design/acceptance reference, not a claim that their sequential dependencies or estimates reflect current progress.
+**Feature review baseline: `0a10e08`.** The [current feature analysis and ordered backlog](docs/CORE_FUNCTIONALITY_GAP_PLAN.md) supersedes earlier inventories that described custom image deployment, revisions, resize and retained restore as missing. Those features are now implemented for the documented application scope; [application progress](docs/APPLICATION_PROGRESS.md) records verification. The original P0–P10 packages below remain design/acceptance references, not current completion estimates.
 
-Portal authentication upgrades are deferred at the user's request. OIDC/MFA/SSO must not block the next functional milestones; existing protections remain. Prioritize custom container deployment, stable application endpoints, update/resize/revisions, retained-data recovery and workload backups. Then complete storage safety, practical networking, management/templates, static/object/data workflows and diagnostics. Source-build PaaS, WAF, GPU jobs and complete cost analysis finish the requested single-host catalog. Multiple hosts follow that release.
+The main missing journey is a custom app with a stable HTTPS hostname, managed private database/storage bindings, and recovery from an actual workload backup. Existing local ports survive application recreation; retained-volume restore reuses data on the existing disk. Neither feature completes managed ingress or disaster recovery.
 
-A complete next user journey is: deploy a custom app with database/storage, configure its secrets and private bindings, open a stable URL, update/resize it, inspect real usage/cost, and restore its data through supported workflows. See F01–F12 and milestones M1–M4 in the new plan for dependencies and concrete acceptance gates.
+### Execution sequence and release gates
 
-The first application slice is now implemented: local/public image registration, custom services/workers, configuration and secret references, stable local port reservations, image/configuration revisions, CPU/RAM resize, rollback and existing retained-data restore. The application checks passed 19 groups plus three additional image/network/volume groups. See [application progress](docs/APPLICATION_PROGRESS.md). M1 remains in progress for managed hostname/TLS ingress and the complete application/data binding journey; provider-aware workload backups remain a priority.
+| Milestone | Next work | Gate |
+|---|---|---|
+| M1 — Complete application hosting (in progress) | Operation side-effect fencing and observed firewall repair; managed hostname/TLS ingress; app/database/S3 bindings. Keep delivered image/configuration/revision/resize behavior | Stable URL and private data access survive replacement; invalid changes preserve working state; no stale operation mutation; scoped access and cost remain correct |
+| M2 — Recover and operate workloads (planned, partial foundations delivered) | Provider-aware backups and volume inventory; physical disk protection; full installation recovery; static/object UI, practical networking, templates/quotas; replicas, diagnostics and editable cost analysis | Restore rows/objects/files into fresh volumes and a clean installation; deploy/manage/tear down a complete stack through supported workflows |
+| M3 — Complete requested single-host catalog (planned) | Source-build PaaS and app plans, WAF, finite CPU/GPU jobs, budgets/overhead; supported Linux install/upgrade and release qualification | Real provider behavior with acceptance evidence, including WAF no-bypass and actual exclusive GPU execution; hardware-blocked gates remain explicit |
+| M4 — Expand to multiple hosts (deferred) | Enrollment, placement, connectivity, storage locality/migration and fencing | Safe ownership/recovery on a second host; HA is a separate gate |
+
+Slice 1 reliability prerequisites are now implemented in the documented single-agent scope: observed firewall repair, lease heartbeats, guarded lifecycle requests and independent maintenance. See [reliability progress](docs/RELIABILITY_PROGRESS.md) for evidence and remaining daemon/distributed limits. Continue with slices 2–3 in the [execution backlog](docs/CORE_FUNCTIONALITY_GAP_PLAN.md#next-implementation-backlog), and design backups alongside M1. Current highest-impact gaps are workload recovery, disk exhaustion protection and the wider operation/daemon recovery gates; address them before treating the installation as a dependable place for valuable data.
+
+Portal authentication enhancements remain deferred by user instruction. Preserve existing protections. Linux workspaces/desktops remain containers sharing the host kernel; true VMs require a separate future provider. Keep single-host first, qualify Linux storage/GPU behavior on actual compatible hardware, and do not present historical test totals or screenshots as full product qualification.
+
+The feature analysis was followed by the reliability implementation above. Its test evidence is recorded separately so the original source review is not confused with runtime qualification. See [implementation status](docs/implementation-status.md) for delivered behavior and evidence limits.
 
 ## 1. Product objective and boundaries
 

@@ -21,11 +21,14 @@ import (
 )
 
 type dockerClient struct {
-	http                *http.Client
-	install, publicHost string
-	imageLocks          map[string]string
-	policyMu            sync.Mutex
-	policyGeneration    string
+	http                   *http.Client
+	install, publicHost    string
+	imageLocks             map[string]string
+	policyMu               sync.Mutex
+	policyGeneration       string
+	policyFingerprint      string
+	controlURL, agentToken string
+	resourceGates          resourceGates
 }
 type dockerError struct {
 	status  int
@@ -42,9 +45,14 @@ func newDocker(a *App) *dockerClient {
 	if b, e := os.ReadFile(env("KZURE_IMAGES_LOCK", "/config/images.lock.json")); e == nil {
 		_ = json.Unmarshal(b, &locks)
 	}
-	return &dockerClient{http: &http.Client{Transport: tr, Timeout: 8 * time.Minute}, install: a.InstallID, publicHost: env("KZURE_PUBLIC_HOST", "127.0.0.1"), imageLocks: locks}
+	return &dockerClient{http: &http.Client{Transport: tr, Timeout: 8 * time.Minute}, install: a.InstallID, publicHost: env("KZURE_PUBLIC_HOST", "127.0.0.1"), imageLocks: locks, controlURL: env("KZURE_CONTROL_URL", "http://api:8090"), agentToken: a.AgentToken}
 }
 func (d *dockerClient) call(ctx context.Context, method, path string, input any) ([]byte, error) {
+	if method != http.MethodGet && method != http.MethodHead {
+		if err := checkMutation(ctx); err != nil {
+			return nil, err
+		}
+	}
 	var body io.Reader
 	if input != nil {
 		b, e := json.Marshal(input)
@@ -171,6 +179,9 @@ func (d *dockerClient) ensureOwned(ctx context.Context, path, name string, label
 	return e
 }
 func (d *dockerClient) archive(ctx context.Context, cname, path, name string, data []byte, mode int64) error {
+	if err := checkMutation(ctx); err != nil {
+		return err
+	}
 	var b bytes.Buffer
 	tw := tar.NewWriter(&b)
 	if e := tw.WriteHeader(&tar.Header{Name: name, Mode: mode, Size: int64(len(data))}); e != nil {
@@ -389,7 +400,9 @@ func (d *dockerClient) ensure(ctx context.Context, p ProvisionRequest) (Observat
 	configured := false
 	defer func() {
 		if !configured {
-			_, _ = d.call(context.Background(), "DELETE", "/containers/"+created.ID+"?force=true", nil)
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer cancel()
+			_, _ = d.call(cleanup, "DELETE", "/containers/"+created.ID+"?force=true", nil)
 		}
 	}()
 	if r.Type == "static-web" && r.Spec.HTML != "" {
@@ -632,6 +645,11 @@ func (a *App) RunAgent() error {
 		if e := decode(r, &in); e != nil {
 			return e
 		}
+		r, release, e := d.guardOperation(r, in.Next.Resource.ID, "replace")
+		if e != nil {
+			return e
+		}
+		defer release()
 		out, e := d.replaceApplication(r.Context(), in)
 		if e != nil {
 			return apiError{502, e.Error()}
@@ -680,6 +698,11 @@ func (a *App) RunAgent() error {
 		if len(p.Resource.ID) != 32 || len(p.Resource.TenantID) != 32 {
 			return bad("invalid resource identity")
 		}
+		r, release, e := d.guardOperation(r, p.Resource.ID, "ensure")
+		if e != nil {
+			return e
+		}
+		defer release()
 		o, e := d.ensure(r.Context(), p)
 		if e != nil {
 			return apiError{502, e.Error()}
@@ -698,6 +721,11 @@ func (a *App) RunAgent() error {
 		if e := decode(r, &in); e != nil {
 			return e
 		}
+		r, release, e := d.guardOperation(r, rid, in.Action)
+		if e != nil {
+			return e
+		}
+		defer release()
 		o, e := d.act(r.Context(), rid, in.Action)
 		if e != nil {
 			return apiError{502, e.Error()}

@@ -1,0 +1,46 @@
+import{readFileSync,writeFileSync,mkdirSync}from'node:fs';
+import{resolve}from'node:path';
+import{spawnSync}from'node:child_process';
+import{randomBytes,randomUUID}from'node:crypto';
+import assert from'node:assert/strict';
+const root=resolve(import.meta.dirname,'..'),config=Object.fromEntries(readFileSync(resolve(root,'.env'),'utf8').split(/\r?\n/).filter(l=>l.includes('=')).map(l=>{const i=l.indexOf('=');return[l.slice(0,i),l.slice(i+1)]}));
+const base='http://localhost:'+(config.KZURE_PORT||8088)+'/api',suffix=randomBytes(4).toString('hex'),results=[],cleanup=[];let cookie='',tenant,group,app;
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+function pass(name){results.push(name);console.log('PASS '+name)}
+function docker(args){const r=spawnSync('docker',args,{cwd:root,encoding:'utf8',windowsHide:true,maxBuffer:1024*1024});assert.equal(r.status,0,'Docker fixture command failed: '+r.stderr.slice(-500));return r.stdout.trim()}
+function sql(text){return docker(['compose','exec','-T','database','psql','-U','kzure','-d','kzure','-v','ON_ERROR_STOP=1','-Atc',text])}
+async function api(path,{method='GET',body,status=200}={}){const r=await fetch(base+path,{method,headers:{Cookie:cookie,'Content-Type':'application/json','X-Kzure-Request':'portal','Idempotency-Key':randomUUID()},body:body===undefined?undefined:JSON.stringify(body)});const out=await r.json();assert.equal(r.status,status,path+': '+JSON.stringify(out));return{data:out,response:r}}
+async function wait(fn,description,seconds=60){for(let i=0;i<seconds;i++){const out=await fn();if(out)return out;await pause(1000)}throw Error('Timed out: '+description)}
+async function state(id,wanted){return wait(async()=>{const r=(await api('/resources/'+id)).data;return r.state===wanted?r:false},wanted)}
+function container(id){const ids=docker(['ps','-q','--filter','label=io.kzure.resource='+id,'--filter','label=io.kzure.type=container-app']);return ids?JSON.parse(docker(['inspect',ids.split('\n')[0]]))[0]:null}
+// The fixture file contains the agent token and stays under ignored .local.
+// Never put that token into process arguments, source, reports or console output.
+const fixture=resolve(root,'.local/operation-tests',suffix);mkdirSync(fixture,{recursive:true});
+function internal(path,{method='GET',body,claim,authenticated=true}={}){const p=resolve(fixture,'request.json');writeFileSync(p,JSON.stringify({url:'http://'+(path.startsWith('/internal/')?'api:8090':'agent:8091')+path,method,body,headers:{'Content-Type':'application/json',...(authenticated?{Authorization:'Bearer '+config.KZURE_AGENT_TOKEN}:{}),...(claim?{'X-Kzure-Operation':claim.id,'X-Kzure-Attempt':String(claim.attempt)}:{})}}),{mode:0o600});const code="const x=JSON.parse(require('fs').readFileSync('/run/fixture.json'));fetch(x.url,{method:x.method,headers:x.headers,body:x.body===undefined?undefined:JSON.stringify(x.body)}).then(async r=>console.log(JSON.stringify({status:r.status,body:await r.json()}))).catch(()=>process.exit(1))";return JSON.parse(docker(['run','--rm','--network','kzure_management','--cap-drop','ALL','--memory','64m','--cpus','.25','--mount','type=bind,source='+p+',target=/run/fixture.json,readonly','--entrypoint','node','kzure/demo-app:0.1.0','-e',code]))}
+let faultOperation;
+async function supersede(oid){const attempt=Number(sql("SELECT attempts FROM operations WHERE id='"+oid+"' AND state='Running'"));assert(attempt>0);sql("UPDATE operations SET attempts=attempts+1,lease_until=now()+interval '10 minutes',message='Disposable takeover fixture' WHERE id='"+oid+"' AND state='Running'");faultOperation=oid;return{id:oid,attempt}}
+function finishFault(){if(faultOperation){sql("UPDATE operations SET state='Failed',lease_until=NULL,message='Disposable takeover fixture complete' WHERE id='"+faultOperation+"'");faultOperation=null}}
+try{
+ const login=await api('/login',{method:'POST',body:{email:config.KZURE_ADMIN_EMAIL,password:config.KZURE_ADMIN_PASSWORD}});cookie=login.response.headers.get('set-cookie').split(';')[0];tenant=(await api('/tenants',{method:'POST',status:201,body:{name:'Disposable operation qualification '+suffix}})).data;group=(await api('/groups?tenant='+tenant.id)).data[0];
+ const image=(await api('/images',{method:'POST',status:201,body:{tenantId:tenant.id,name:'operation-fixture-'+suffix,reference:'kzure/demo-app:0.1.0'}})).data;
+ const spec={cpu:.25,ram:.25,storage:1,mountPath:'/data',image:image.imageId,mode:'service',port:3000,environment:{GREETING:'lease-fixture'},healthcheck:['node','-e',"process.exit(require('fs').existsSync('/data/ready')?0:1)"]};
+ const created=(await api('/resources',{method:'POST',status:202,body:{tenantId:tenant.id,groupId:group.id,name:'lease-api-'+suffix,type:'container-app',spec}})).data;cleanup.push(created.resource.id);app=created.resource;await wait(()=>container(app.id),'fixture container');
+ assert.equal(internal('/internal/operations/'+created.operationId,{authenticated:false}).status,401);pass('Internal operation ownership check requires the agent credential');
+ assert.equal(internal('/resources/'+app.id+'/actions',{method:'POST',body:{action:'purge'}}).status,409);assert(container(app.id));pass('An unclaimed lifecycle request cannot change a real resource');
+ const observedAt=sql('SELECT extract(epoch from updated_at) FROM network_policy_status WHERE id=1');
+ sql("UPDATE operations SET lease_until=now()+interval '30 seconds' WHERE id='"+created.operationId+"'");await pause(17000);
+ const remaining=Number(sql("SELECT extract(epoch from lease_until-now()) FROM operations WHERE id='"+created.operationId+"' AND state='Running'"));assert(remaining>500);pass('A running operation renews its lease while waiting for application readiness');
+ const claim=await supersede(created.operationId);await pause(17000);
+ assert.equal(sql("SELECT state||':'||attempts FROM operations WHERE id='"+claim.id+"'"),'Running:'+(claim.attempt+1));assert.equal((await api('/resources/'+app.id)).data.state,'Provisioning');assert(container(app.id));pass('Superseded work cannot overwrite the replacement attempt or mark its resource failed');
+ assert(Number(sql('SELECT extract(epoch from updated_at) FROM network_policy_status WHERE id=1'))>Number(observedAt));pass('Periodic policy observation continues while provisioning is waiting');
+ assert.equal(internal('/ensure',{method:'POST',body:{resource:app},claim}).status,409);assert(container(app.id));pass('A delayed stale attempt is rejected before Docker mutation');
+ const currentClaim={id:claim.id,attempt:claim.attempt+1};assert.equal(internal('/resources/'+app.id+'/actions',{method:'POST',body:{action:'purge'},claim:currentClaim}).status,409);pass('A current create operation cannot escalate to purge');
+ docker(['exec',container(app.id).Id,'touch','/data/ready']);finishFault();await api('/resources/'+app.id+'/actions',{method:'POST',status:202,body:{action:'start'}});app=await state(app.id,'Running');assert.equal((await(await fetch(app.endpoint)).json()).greeting,'lease-fixture');pass('A fresh operation recovers the existing compute and data after takeover');
+ docker(['exec',app.containerId,'rm','/data/ready']);await api('/resources/'+app.id+'/actions',{method:'POST',status:202,body:{action:'delete'}});app=await state(app.id,'Retained');
+ const restored=(await api('/resources/'+app.id+'/actions',{method:'POST',status:202,body:{action:'restore'}})).data;await wait(()=>container(app.id),'restoring container');const restoreClaim=await supersede(restored.operationId);await pause(17000);assert(container(app.id));assert.equal(sql("SELECT state||':'||attempts FROM operations WHERE id='"+restoreClaim.id+"'"),'Running:'+(restoreClaim.attempt+1));assert.equal((await api('/resources/'+app.id)).data.state,'Provisioning');pass('An expired restore attempt does not delete the replacement attempt compute during cleanup');
+ assert.equal(internal('/resources/'+app.id+'/actions',{method:'POST',body:{action:'delete'},claim:restoreClaim}).status,409);assert(container(app.id));pass('Delayed restore cleanup is independently refused by the agent');
+ docker(['exec',container(app.id).Id,'touch','/data/ready']);finishFault();await api('/resources/'+app.id+'/actions',{method:'POST',status:202,body:{action:'start'}});app=await state(app.id,'Running');
+ // Completed claims cannot be replayed after the agent loses all in-memory state.
+ docker(['compose','restart','agent']);await pause(1500);assert.equal(internal('/ensure',{method:'POST',body:{resource:app},claim}).status,409);assert(container(app.id));pass('Agent restart still refuses stale claims using the durable operation ledger');
+ writeFileSync(resolve(root,'.local/operation-recovery-report.json'),JSON.stringify({at:new Date().toISOString(),passed:results.length,tests:results,scope:'Single Docker Desktop Linux engine. Tests supersede disposable operation attempts; already-issued daemon effects and multi-agent/multi-host fencing remain separate gates.'},null,2)+'\n');console.log(results.length+' operation recovery groups passed.');
+}catch(e){console.error(e.message);process.exitCode=1}finally{finishFault();for(const rid of cleanup.reverse())try{await api('/resources/'+rid+'/actions',{method:'POST',status:202,body:{action:'purge'}});await state(rid,'Deleted')}catch{console.error('Disposable operation fixture cleanup pending');process.exitCode=1}}
