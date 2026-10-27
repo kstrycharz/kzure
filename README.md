@@ -6,6 +6,41 @@ A local cloud portal that provisions real Docker resources on your own hardware.
 
 The current [core functionality gap plan](docs/CORE_FUNCTIONALITY_GAP_PLAN.md) prioritizes custom application deployment, stable app endpoints, update/resize, retained-data recovery, workload backups and the remaining single-host service catalog. Portal authentication enhancements are deferred from this functional implementation sequence.
 
+## Screenshots
+
+The portal running with local demonstration resources. Click any screenshot to open it at full size.
+
+[![Kzure dashboard showing local resources, host capacity and estimated costs](docs/images/overview.jpg)](docs/images/overview.jpg)
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Service catalog</strong><br>
+      Browse applications, databases, storage, Linux workspaces and remote-access resources.<br><br>
+      <a href="docs/images/service-catalog.jpg"><img src="docs/images/service-catalog.jpg" alt="Kzure service catalog with resource types, sizes and estimated costs" width="480"></a>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Create a container app</strong><br>
+      Choose an image, application settings, network, compute size and persistent storage.<br><br>
+      <a href="docs/images/create-container-app.jpg"><img src="docs/images/create-container-app.jpg" alt="Container application deployment form with image, network and environment settings" width="480"></a>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Browser shell</strong><br>
+      Open an interactive terminal in a running Linux workspace.<br><br>
+      <a href="docs/images/browser-shell.jpg"><img src="docs/images/browser-shell.jpg" alt="Interactive Kzure browser shell running as the non-root workspace user" width="480"></a>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Browser desktop</strong><br>
+      Connect to an actual container-hosted Ubuntu/Xfce desktop through the bastion.<br><br>
+      <a href="docs/images/browser-desktop.jpg"><img src="docs/images/browser-desktop.jpg" alt="Ubuntu Xfce desktop displayed inside the Kzure browser desktop interface" width="480"></a>
+    </td>
+  </tr>
+</table>
+
+These are captures from working development builds. Sample resource counts, usage and interface details can change between versions; the catalog labels unfinished providers explicitly.
+
 ## Open the installed portal
 
 Visit **http://localhost:8088**. Your installation has a randomly generated administrator password in **`.local/admin-credentials.txt`**. The default email is `admin@kzure.local`. Passwords and installation keys are excluded from Git. The first tenant is **Home lab**, containing a **Development** subscription and a **default** resource group.
