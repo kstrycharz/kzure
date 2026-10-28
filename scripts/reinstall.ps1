@@ -56,9 +56,9 @@ foreach ($volumeName in $ownedVolumes) {
 }
 Docker-Run @('compose','-f','compose.yaml','-f','compose.https.yaml','down','--volumes','--remove-orphans')
 foreach ($kind in @('container','volume','network')) {
-    $remaining = if ($kind -eq 'container') { @(Docker-Read @('ps','-aq','--filter',"label=io.kzure.installation=$oldInstallation")) } else { @(Docker-Read @($kind,'ls','-q','--filter',"label=io.kzure.installation=$oldInstallation")) }
+    $remaining = @(if ($kind -eq 'container') { Docker-Read @('ps','-aq','--filter',"label=io.kzure.installation=$oldInstallation") } else { Docker-Read @($kind,'ls','-q','--filter',"label=io.kzure.installation=$oldInstallation") })
     if ($remaining.Count -gt 0) { throw 'Old installation objects remain; private configuration has been preserved for inspection' }
-    $composeRemaining = if ($kind -eq 'container') { @(Docker-Read @('ps','-aq','--filter','label=com.docker.compose.project=kzure')) } else { @(Docker-Read @($kind,'ls','-q','--filter','label=com.docker.compose.project=kzure')) }
+    $composeRemaining = @(if ($kind -eq 'container') { Docker-Read @('ps','-aq','--filter','label=com.docker.compose.project=kzure') } else { Docker-Read @($kind,'ls','-q','--filter','label=com.docker.compose.project=kzure') })
     if ($composeRemaining.Count -gt 0) { throw 'Compose objects remain; private configuration has been preserved for inspection' }
 }
 # The full absolute paths above were verified against this checkout. No source
