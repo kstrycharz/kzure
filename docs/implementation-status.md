@@ -2,6 +2,8 @@
 
 Last updated: October 27, 2026. Release: `0.1.0-dev`.
 
+**Latest operator state: fresh installation completed.** At the user’s request, the previous workloads, metadata, credentials and private configuration were wiped and Kzure was rebuilt with new credentials. The portal now shows one default tenant/group and zero resources. API/browser sign-in and CA-verified HTTPS passed. See [fresh-install verification](FRESH_INSTALL_PROGRESS.md). Earlier entries below record historical development evidence.
+
 **Development resumed at the user's request.** The platform and retained workloads were restored after their containers had been removed. IPv4 subnet enforcement passed 17 integration groups; optional loopback HTTPS passed seven checks; see [REMOTE_ACCESS_PROGRESS.md](REMOTE_ACCESS_PROGRESS.md) for actual evidence and remaining release gates.
 
 Final resumed verification: 16 foundation, 28 browser-shell, 14 native-access/network, six desktop and 17 IPv4 policy groups passed, together with seven HTTPS/WSS checks, Go tests/vet and the portal build. Metadata restored into a scratch database with 83 resource records. This is a working single-host development milestone, with the wider master-plan gates still open.

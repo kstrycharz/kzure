@@ -33,4 +33,3 @@ try{
  for(const bid of backups)try{await api('/backups/'+bid,{method:'DELETE'})}catch{console.error('Backup fixture archive cleanup needs attention');process.exitCode=1}
  for(const rid of cleanup.reverse())try{const r=await resource(rid);if(r.state!=='Deleted'){await api('/resources/'+rid+'/actions',{method:'POST',status:202,body:{action:'purge'}});await ready(rid,'Deleted')}}catch{console.error('Recovery fixture cleanup needs attention');process.exitCode=1}
 }
-
