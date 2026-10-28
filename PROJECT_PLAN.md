@@ -506,3 +506,7 @@ R2 is complete only when a user can install the release, create two tenants with
 Discover the actual host hardware, GPU model, existing filesystem, free capacity, local domain/DNS control, and backup destination. Confirm which workloads/users are trusted and whether external access is desired. Default to LAN-only access, private storage, strict capacity admission, retained data on deletion, manual scaling, and no cloud dependency. If the hardware cannot meet a capability, disable that capability with an explanation and continue other phases; never fake successful provisioning.
 
 The core architectural choices above are defaults the implementation agent can follow. Changes require a short architecture decision describing the problem, tradeoffs, migration impact, and updated acceptance gate. Build and verify the product in vertical slices instead of implementing every portal screen before real resources work.
+
+## October 27 workload recovery checkpoint
+
+Encrypted local snapshots and new-volume restoration passed 12 integration groups for the supported PostgreSQL, Valkey, S3, plain-workspace and persistent-app providers. See [workload recovery progress](docs/WORKLOAD_RECOVERY_PROGRESS.md) for exact-image/size/interruption limits and open disaster-recovery gates. An explicit [fresh reinstall workflow](docs/FRESH_INSTALL.md) now discards installation state and regenerates credentials. Physical capacity protection and complete recovery bundles remain next. Portal authentication enhancements remain deferred.

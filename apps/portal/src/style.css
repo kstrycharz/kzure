@@ -27,3 +27,7 @@
 .application-bindings .application-revision>.button{margin-top:12px}
 .application-bindings .detail-list{grid-template-columns:minmax(120px,1fr) minmax(0,1.25fr);gap:10px 16px}
 .application-bindings .detail-list dt,.application-bindings .detail-list dd{min-width:0;overflow-wrap:anywhere}
+
+.resource-backups code{overflow-wrap:anywhere;word-break:break-all}.resource-backups article{align-items:flex-start}.resource-backups article>div{min-width:0;flex:1}.resource-backups fieldset{display:grid;gap:14px;border:0;padding:0}.resource-backups label{display:grid;gap:6px}.resource-backups input,.resource-backups select{padding:10px;border:1px solid #dbe5f2;border-radius:5px;width:100%;background:#fff;color:inherit}
+
+.drawer-tabs{overflow-x:auto;flex-shrink:0}.drawer-tabs button{white-space:nowrap;flex-shrink:0}

@@ -22,6 +22,8 @@ type mutationCheckKey struct{}
 
 func operationAllows(action, dispatch string) bool {
 	switch dispatch {
+	case "backup", "restore-backup":
+		return action == dispatch
 	case "ensure":
 		return action == "create" || action == "start" || action == "restore"
 	case "replace":

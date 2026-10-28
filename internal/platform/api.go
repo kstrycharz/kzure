@@ -139,6 +139,7 @@ func (a *App) RunAPI() error {
 	a.applicationRoutes(secured)
 	a.ingressRoutes(secured)
 	a.bindingRoutes(secured)
+	a.backupRoutes(secured)
 	a.networkPolicyRoutes(secured)
 	secured.HandleFunc("GET /api/me", a.handle(func(w http.ResponseWriter, r *http.Request) error { jsonOut(w, 200, actor(r)); return nil }))
 	secured.HandleFunc("POST /api/logout", a.handle(func(w http.ResponseWriter, r *http.Request) error {
@@ -627,8 +628,25 @@ func (a *App) createResource(w http.ResponseWriter, r *http.Request) error {
 	if e != nil {
 		return e
 	}
+	createAction := "create"
+	if restore, ok := r.Context().Value(restoreBackupKey{}).(restoreBackupContext); ok {
+		var ready bool
+		if e = tx.QueryRow("SELECT state='Ready' FROM workload_backups WHERE id=$1 FOR SHARE", restore.ID).Scan(&ready); e != nil {
+			return e
+		}
+		if !ready {
+			return apiError{409, "Backup is no longer available"}
+		}
+		cipher = restore.Cipher
+		createAction = "restore-backup"
+	}
 	if _, e = tx.Exec("INSERT INTO resources(id,tenant_id,subscription_id,group_id,name,type,spec,secret_cipher) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", rid, in.TenantID, sid, in.GroupID, in.Name, in.Type, spec, cipher); e != nil {
 		return apiError{409, "A resource with this name already exists in the group"}
+	}
+	if restore, ok := r.Context().Value(restoreBackupKey{}).(restoreBackupContext); ok {
+		if _, e = tx.Exec("INSERT INTO backup_restores(resource_id,backup_id) VALUES($1,$2)", rid, restore.ID); e != nil {
+			return e
+		}
 	}
 	if in.Type == "container-app" {
 		if _, e = tx.Exec("INSERT INTO resource_revisions(resource_id,revision,spec,secret_cipher,state) VALUES($1,1,$2,$3,'Pending')", rid, spec, cipher); e != nil {
@@ -647,7 +665,7 @@ func (a *App) createResource(w http.ResponseWriter, r *http.Request) error {
 		q    string
 		args []any
 	}{
-		{"INSERT INTO operations(id,tenant_id,resource_id,action) VALUES($1,$2,$3,'create')", []any{oid, in.TenantID, rid}},
+		{"INSERT INTO operations(id,tenant_id,resource_id,action) VALUES($1,$2,$3,$4)", []any{oid, in.TenantID, rid, createAction}},
 		{"INSERT INTO idempotency VALUES($1,$2,$3,$4)", []any{u.ID, key, bodyHash, rid}},
 		{"INSERT INTO audit_events(id,tenant_id,user_id,action,resource_id) VALUES($1,$2,$3,'resource.create',$4)", []any{id(), in.TenantID, u.ID, rid}},
 	} {
@@ -733,6 +751,15 @@ func (a *App) resourceAction(w http.ResponseWriter, r *http.Request) error {
 	}
 	if busy > 0 {
 		return apiError{409, "another operation is already in progress"}
+	}
+	if in.Action != "purge" && in.Action != "delete" && in.Action != "stop" {
+		var incomplete bool
+		if e = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM backup_restores WHERE resource_id=$1 AND state<>'Complete')", res.ID).Scan(&incomplete); e != nil {
+			return e
+		}
+		if incomplete {
+			return apiError{409, "This restore is incomplete. Purge this failed target and restore the backup into a new resource."}
+		}
 	}
 	if (in.Action == "start" || in.Action == "restart" || in.Action == "restore") && desired != "Running" {
 		var cpu, ram, sc, sr float64

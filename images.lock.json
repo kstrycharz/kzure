@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T20:41:04.363Z",
+  "generatedAt": "2026-10-28T03:40:55.321Z",
   "images": {
     "nginxinc/nginx-unprivileged:1.29-alpine": "nginxinc/nginx-unprivileged@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
     "postgres:18-alpine": "postgres@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
@@ -53,6 +53,7 @@
     "history/kzure/workspace-ssh-fedora:0.1.0/sha256:7cd85c7242bb2f2035d2f8490151c6bcb7bdd4910c3d703e53078f11b0baa631": "sha256:7cd85c7242bb2f2035d2f8490151c6bcb7bdd4910c3d703e53078f11b0baa631",
     "history/kzure/workspace-ssh-rocky:0.1.0/sha256:a9f4b099313177984e436e76e3211381600e23a47654be0db7230ea6cef13133": "sha256:a9f4b099313177984e436e76e3211381600e23a47654be0db7230ea6cef13133",
     "history/kzure/workspace-ssh-alma:0.1.0/sha256:25ede6504a52309c38edf25790cc0219435e0ec235957b89d90a1a34f017e0b9": "sha256:25ede6504a52309c38edf25790cc0219435e0ec235957b89d90a1a34f017e0b9",
-    "kzure/ingress:0.1.0": "sha256:a2b21e1548545eeef8715cd856b0cc89b257f8386e5d5076e37ed3ec8b1f1792"
+    "kzure/ingress:0.1.0": "sha256:a2b21e1548545eeef8715cd856b0cc89b257f8386e5d5076e37ed3ec8b1f1792",
+    "kzure/backup:0.1.0": "sha256:502e28372772e3e6557dc4104e3a6fe1f22cf98248254f7ca25e39fa5623d036"
   }
 }

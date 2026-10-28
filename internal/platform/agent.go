@@ -642,6 +642,7 @@ func (a *App) RunAgent() error {
 	d.desktopAgentRoutes(mux)
 	d.policyRoutes(mux)
 	d.ingressAgentRoutes(mux)
+	d.backupAgentRoutes(a, mux)
 	mux.HandleFunc("POST /applications/replace", a.handle(func(w http.ResponseWriter, r *http.Request) error {
 		var in replacementRequest
 		if e := decode(r, &in); e != nil {

@@ -47,6 +47,8 @@ Visit **http://localhost:8088**. Your installation has a randomly generated admi
 
 The portal can create tenants, subscriptions, resource groups, and supported resources; show deployment activity and container logs/metrics; stop/start/restart resources; reveal service credentials to owners; retain or explicitly purge persistent data; and show illustrative allocation costs with CSV export.
 
+Workload data can now be encrypted and restored into fresh owned volumes for the supported providers. See [workload recovery progress](docs/WORKLOAD_RECOVERY_PROGRESS.md) for the 12-group verification, snapshot interruption and current archive limits. To discard all data/configuration and reinstall with new credentials, use the explicit [fresh installation workflow](docs/FRESH_INSTALL.md).
+
 ## Install / rebuild
 
 Prerequisites: Docker Engine with Compose and Linux containers, Node.js 24+, sufficient free disk space, and access to the pinned image/package registries for initial builds. Go compiles inside Docker; installing Go on Windows is unnecessary.

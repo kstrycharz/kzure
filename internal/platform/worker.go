@@ -176,7 +176,7 @@ func (a *App) workOne() error {
 	if e != nil {
 		return e
 	}
-	e = a.markOperationResource(ctx, oid, rid, attempt, map[string]string{"update": "Updating", "restore": "Provisioning", "create": "Provisioning", "start": "Provisioning", "restart": "Updating", "stop": "Updating", "delete": "Deleting", "purge": "Deleting"}[action])
+	e = a.markOperationResource(ctx, oid, rid, attempt, map[string]string{"backup": "BackingUp", "restore-backup": "Provisioning", "update": "Updating", "restore": "Provisioning", "create": "Provisioning", "start": "Provisioning", "restart": "Updating", "stop": "Updating", "delete": "Deleting", "purge": "Deleting"}[action])
 	if e != nil {
 		return e
 	}
@@ -187,6 +187,12 @@ func (a *App) workOne() error {
 	e = a.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM application_endpoints WHERE resource_id=$1)", rid).Scan(&hasEndpoint)
 	if e == nil && hasEndpoint {
 		e = a.syncIngress()
+	}
+	if action == "backup" {
+		if e != nil {
+			return e
+		}
+		return a.workBackup(ctx, oid, attempt, res)
 	}
 	var previous Resource
 	var previousCipher string
@@ -223,6 +229,12 @@ func (a *App) workOne() error {
 				e = a.agent(ctx, "POST", "/applications/replace", replacementRequest{Next: ProvisionRequest{Resource: res, Secrets: sec, Network: network}, Previous: ProvisionRequest{Resource: previous, Secrets: oldSec, Network: network}}, &replacement)
 			}
 			out = replacement.Observation
+		}
+	} else if e == nil && action == "restore-backup" {
+		var p backupRequest
+		p, e = a.restoreBackupRequest(res)
+		if e == nil {
+			e = a.agent(ctx, "POST", "/restore-backup", p, &out)
 		}
 	} else if e == nil && (action == "create" || action == "start" || action == "restore") {
 		var encrypted string
@@ -262,6 +274,9 @@ func (a *App) workOne() error {
 	if e != nil {
 		message := e.Error()
 		failureState, failureDesired := "Failed", res.Desired
+		if action == "restore-backup" {
+			failureDesired = "Stopped"
+		}
 		if action == "restore" {
 			var retained Observation
 			if cleanupError := a.agent(ctx, "POST", "/resources/"+rid+"/actions", map[string]string{"action": "delete"}, &retained); cleanupError == nil {
@@ -288,6 +303,11 @@ func (a *App) workOne() error {
 		}
 		if _, err = tx.Exec("UPDATE resources SET state=$3,desired=$4,error=$1,updated_at=now() WHERE id=$2", message, rid, failureState, failureDesired); err != nil {
 			return err
+		}
+		if action == "restore-backup" {
+			if _, err = tx.Exec("UPDATE backup_restores SET state='Failed' WHERE resource_id=$1", rid); err != nil {
+				return err
+			}
 		}
 		if res.Type == "container-app" && (action == "create" || action == "update") {
 			if _, err = tx.Exec("UPDATE resource_revisions SET state='Failed',message=$3 WHERE resource_id=$1 AND revision=$2", rid, res.Revision, message); err != nil {
@@ -339,6 +359,11 @@ func (a *App) workOne() error {
 	}
 	if _, e = tx.Exec("UPDATE resources SET state=$1,desired=$2,container_id=$3,endpoint=$4,volume=$5,error='',updated_at=now() WHERE id=$6", out.State, desired, out.ContainerID, out.Endpoint, out.Volume, rid); e != nil {
 		return e
+	}
+	if action == "restore-backup" {
+		if _, e = tx.Exec("UPDATE backup_restores SET state='Complete' WHERE resource_id=$1", rid); e != nil {
+			return e
+		}
 	}
 	if e = a.allocation(tx, res, out.State == "Running" || out.State == "Degraded", out.Volume != ""); e != nil {
 		return e

@@ -18,6 +18,10 @@ Managed loopback hostnames/TLS, readiness-gated route replacement, static/app ro
 
 Application/PostgreSQL/Valkey/S3 bindings, encrypted immutable credential snapshots, prefix validation, revision-based bind/unbind and connector recovery are implemented. The example HTTP app completed actual database writes, signed object round trips and cache operations over managed HTTPS. See [binding progress](APPLICATION_BINDINGS_PROGRESS.md) for current verification and remaining provider rotation/recovery gates. Continue to provider-aware workload backups and physical capacity protection.
 
+## Subsequent workload recovery — October 27
+
+Encrypted stopped-volume backup jobs, the Backups tab and checksum/authentication-verified restore into fresh volumes are implemented. Twelve integration groups passed across PostgreSQL, Valkey, S3, plain workspaces and a persistent custom application. See [workload recovery progress](WORKLOAD_RECOVERY_PROGRESS.md). The initial limit is 512 MiB; off-host export/full installation recovery, larger archives, schedules and the remaining provider identities are still open. Continue to physical storage protection and complete recovery bundles.
+
 ## Assessment
 
 Kzure now hosts custom applications with configuration, encrypted secret references, revisions, CPU/RAM resize and rollback. Managed local HTTPS and private PostgreSQL/Valkey/S3 bindings complete the basic application/data journey. Shell, SSH/bastion and browser desktop remain implemented. The next core gap is **recovering workload contents into fresh volumes**, followed by physical disk protection and everyday provider management.
@@ -34,7 +38,7 @@ The release remains a single-host development preview. WAF, source-build PaaS an
 | Custom containers — F01 | Partial: registered local/public Linux images, immutable retained identity, service/continuous-worker modes, environment/secrets, command, readiness and one managed mount | Private-registry credentials, archive import, image availability/retention management, secret rotation; finite jobs belong to F11 |
 | Application endpoints — F02 | Partial: stable local ports plus managed loopback hostname/TLS gateway, readiness gating, persistent CA and portal endpoint controls | Supplied certificates/custom domains, wider exposure modes, replicas and Linux/LAN qualification remain; application TLS now has its own CA |
 | Lifecycle — F03 | Partial: app revisions, conditional edits, image/config updates, CPU/RAM resize, failed-update recovery and rollback | Other-provider updates, storage growth/migration, observed spec reconciliation and route-based rollout; current replacement interrupts compute |
-| Recovery — F04 | Partial: retained-resource restore and missing-volume refusal; metadata scratch restore | Workload backups, fresh-volume restore, volume inventory, schedules and complete installation recovery; retaining the same disk is not a backup |
+| Recovery — F04 | Partial: retained restore plus encrypted local stopped-volume snapshots and fresh-volume recovery for supported providers | Larger archives, off-host export, volume inventory, schedules and complete installation recovery; initial recovery limit is 512 MiB |
 | Disk capacity — F05 | Declared-only storage admission; CPU/RAM limits are real | Physical bytes/inodes, headroom, image/log/backup overhead and qualified hard quotas; a workload can still exhaust shared disk |
 | Static web — F06 | Partial: real Nginx with one HTML page | Multi-file upload, SPA routing, revisions and rollback; ordinary frontend bundles lack a supported deployment workflow |
 | S3 / data services — F06 | Partial: dedicated S3, PostgreSQL and Valkey, generated credentials and private connectors | Managed connection settings are now implemented. Object browser, credential rotation, provider-aware upgrades and recovery remain |

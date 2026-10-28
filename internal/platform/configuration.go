@@ -82,6 +82,14 @@ func (a *App) saveApplicationConfiguration(w http.ResponseWriter, r *http.Reques
 	return a.withBindingLock(func() error { return a.saveApplicationConfigurationLocked(w, r, expected, spec) })
 }
 func (a *App) saveApplicationConfigurationLocked(w http.ResponseWriter, r *http.Request, expected int, spec Spec) error {
+	var incomplete bool
+	if e := a.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM backup_restores WHERE resource_id=$1 AND state<>'Complete')", r.PathValue("id")).Scan(&incomplete); e != nil {
+		return e
+	}
+	if incomplete {
+		return apiError{409, "This restore is incomplete; purge this target and restore into a new resource"}
+	}
+
 	res, e := a.resource(r.PathValue("id"))
 	if e != nil {
 		return e

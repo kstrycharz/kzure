@@ -16,6 +16,8 @@ Final resumed verification: 16 foundation, 28 browser-shell, 14 native-access/ne
 
 **Subsequent managed bindings:** the portal now supports app-to-PostgreSQL/Valkey/S3 bindings with stable private aliases, encrypted credential snapshots, revision-based bind/unbind and saved binding rollback. The example HTTP app performs real operations against all three services over managed HTTPS. See [APPLICATION_BINDINGS_PROGRESS.md](APPLICATION_BINDINGS_PROGRESS.md). Workload backups/restore and physical storage protection are next; provider credential rotation/upgrades remain open.
 
+**Subsequent workload recovery:** encrypted local stopped-volume snapshots and fresh-volume restore are implemented for PostgreSQL, Valkey, S3, plain Linux workspaces and persistent container apps. Twelve recovery integration groups passed; see [WORKLOAD_RECOVERY_PROGRESS.md](WORKLOAD_RECOVERY_PROGRESS.md). Off-host/full-installation recovery, larger archives and complete provider/hardware qualification remain open. The explicit [fresh reinstall workflow](FRESH_INSTALL.md) wipes installation data/configuration and regenerates credentials.
+
 ## Delivered foundation
 
 - React/TypeScript portal: sign-in, dashboard, tenant switcher, catalog, real create-resource wizard, resource details, logs, live metrics, lifecycle actions, group/tenant/subscription creation, operations, cost table/CSV, host capability view, and scoped local-user creation.
